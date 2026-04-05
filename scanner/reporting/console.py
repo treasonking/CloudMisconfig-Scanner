@@ -8,15 +8,17 @@ class ConsoleReporter:
         lines: list[str] = []
 
         if result.errors:
+            lines.append("=== Errors ===")
             for err in result.errors:
-                lines.append(f"[AWS 오류] {err}")
-            return "\n".join(lines)
+                lines.append(f"[ERROR] {err}")
+            lines.append("")
 
         identity = result.data.get("identity", {})
-        lines.append("=== AWS 인증 성공 ===")
-        lines.append(f"Account: {identity.get('account', '-')}")
-        lines.append(f"ARN: {identity.get('arn', '-')}")
-        lines.append("")
+        if identity:
+            lines.append("=== AWS 인증 성공 ===")
+            lines.append(f"Account: {identity.get('account', '-')}")
+            lines.append(f"ARN: {identity.get('arn', '-')}")
+            lines.append("")
 
         lines.append("=== S3 버킷 목록 ===")
         buckets = result.data.get("s3_buckets", [])
@@ -32,6 +34,14 @@ class ConsoleReporter:
             lines.append("IAM 사용자가 없습니다.")
         else:
             lines.extend([f"- {name}" for name in users])
+        lines.append("")
+
+        lines.append("=== Security Groups ===")
+        groups = result.data.get("security_groups", [])
+        if not groups:
+            lines.append("Security Group이 없습니다.")
+        else:
+            lines.extend([f"- {g.get('group_id', '-')} ({g.get('group_name', '-')})" for g in groups])
         lines.append("")
 
         lines.append("=== Checks ===")

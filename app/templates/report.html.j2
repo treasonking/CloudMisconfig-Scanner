@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cloud Misconfig Report</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --line: #dbe3ee;
+      --text: #122033;
+      --muted: #5f7088;
+      --critical: #8b0000;
+      --high: #b93815;
+      --medium: #9a6700;
+      --low: #325d1d;
+      --pass: #0f7a33;
+      --fail: #b91c1c;
+    }
+    body {
+      margin: 0;
+      background: linear-gradient(145deg, #eef4fb 0%, #f7fafc 100%);
+      font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 24px rgba(26, 54, 93, 0.07);
+    }
+    h1, h2 { margin: 0 0 12px; }
+    .meta { color: var(--muted); font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 10px 8px; vertical-align: top; }
+    th { background: #f6f9fd; }
+    .status-PASS { color: var(--pass); font-weight: 700; }
+    .status-FAIL { color: var(--fail); font-weight: 700; }
+    .sev-CRITICAL { color: var(--critical); font-weight: 700; }
+    .sev-HIGH { color: var(--high); font-weight: 700; }
+    .sev-MEDIUM { color: var(--medium); font-weight: 700; }
+    .sev-LOW, .sev-INFO { color: var(--low); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Cloud Misconfiguration Report</h1>
+      <div class="meta">Provider: {{ context.provider }} | Region: {{ context.region }} | Profile: {{ context.profile or '-' }}</div>
+      <div class="meta">Started At (UTC): {{ context.started_at }}</div>
+      <div class="meta">Total Findings: {{ summary.total }} | FAIL: {{ summary.fail }} | PASS: {{ summary.pass }}</div>
+      <div class="meta">CRITICAL: {{ summary.critical }} | HIGH: {{ summary.high }} | MEDIUM: {{ summary.medium }} | LOW/INFO: {{ summary.low_info }}</div>
+    </div>
+
+    {% if errors %}
+    <div class="card">
+      <h2>Errors</h2>
+      <ul>
+        {% for err in errors %}
+        <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <h2>Findings</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Severity</th>
+            <th>Check ID</th>
+            <th>Resource</th>
+            <th>Message</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in findings %}
+          <tr>
+            <td class="status-{{ f.status }}">{{ f.status }}</td>
+            <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
+            <td>{{ f.check_id }}</td>
+            <td>{{ f.resource }}</td>
+            <td>{{ f.message }}</td>
+            <td>{{ f.recommendation or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

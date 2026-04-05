@@ -20,6 +20,7 @@ class Finding:
     resource: str
     message: str
     recommendation: str | None = None
+    evidence: dict[str, Any] | None = None
 
 
 @dataclass
