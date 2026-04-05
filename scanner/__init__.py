@@ -1,0 +1,2 @@
+"""Cloud misconfiguration scanner package."""
+
