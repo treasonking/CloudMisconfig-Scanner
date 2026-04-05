@@ -27,6 +27,11 @@ class AWSProvider:
     def collect(self) -> ScanResult:
         context = ScanContext(provider=self.name, region=self.region_name, profile=self.profile_name)
         result = ScanResult(context=context)
+        result.data["service_status"] = {
+            "s3": {"status": "PENDING", "errors": []},
+            "iam": {"status": "PENDING", "errors": []},
+            "ec2": {"status": "PENDING", "errors": []},
+        }
 
         try:
             session = self._session()
@@ -45,16 +50,31 @@ class AWSProvider:
 
         except ProfileNotFound:
             result.errors.append(f"AWS profile '{self.profile_name}' 을 찾을 수 없습니다.")
+            self._mark_service_failed(result, "s3", "ProfileNotFound")
+            self._mark_service_failed(result, "iam", "ProfileNotFound")
+            self._mark_service_failed(result, "ec2", "ProfileNotFound")
         except NoCredentialsError:
             result.errors.append("AWS 자격 증명을 찾을 수 없습니다.")
+            self._mark_service_failed(result, "s3", "NoCredentialsError")
+            self._mark_service_failed(result, "iam", "NoCredentialsError")
+            self._mark_service_failed(result, "ec2", "NoCredentialsError")
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "Unknown")
             message = exc.response.get("Error", {}).get("Message", str(exc))
             result.errors.append(f"{code}: {message}")
+            self._mark_service_failed(result, "s3", f"{code}: {message}")
+            self._mark_service_failed(result, "iam", f"{code}: {message}")
+            self._mark_service_failed(result, "ec2", f"{code}: {message}")
         except BotoCoreError as exc:
             result.errors.append(str(exc))
+            self._mark_service_failed(result, "s3", str(exc))
+            self._mark_service_failed(result, "iam", str(exc))
+            self._mark_service_failed(result, "ec2", str(exc))
         except Exception as exc:
             result.errors.append(str(exc))
+            self._mark_service_failed(result, "s3", str(exc))
+            self._mark_service_failed(result, "iam", str(exc))
+            self._mark_service_failed(result, "ec2", str(exc))
 
         return result
 
@@ -65,12 +85,14 @@ class AWSProvider:
             bucket_names = [bucket["Name"] for bucket in buckets]
             result.data["s3_buckets"] = bucket_names
             result.data["s3_bucket_security"] = self._collect_s3_bucket_security(s3, bucket_names)
+            self._mark_service_success(result, "s3")
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "Unknown")
             message = exc.response.get("Error", {}).get("Message", str(exc))
             result.errors.append(f"S3 scan failed: {code}: {message}")
             result.data.setdefault("s3_buckets", [])
             result.data.setdefault("s3_bucket_security", [])
+            self._mark_service_failed(result, "s3", f"{code}: {message}")
 
     def _collect_iam(self, session: boto3.Session, result: ScanResult) -> None:
         try:
@@ -80,6 +102,7 @@ class AWSProvider:
             result.data["iam_users"] = user_names
             result.data["iam_user_mfa"] = self._collect_iam_user_mfa(iam, user_names)
             result.data["iam_user_policy_risk"] = self._collect_iam_user_policy_risk(iam, user_names)
+            self._mark_service_success(result, "iam")
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "Unknown")
             message = exc.response.get("Error", {}).get("Message", str(exc))
@@ -87,6 +110,7 @@ class AWSProvider:
             result.data.setdefault("iam_users", [])
             result.data.setdefault("iam_user_mfa", [])
             result.data.setdefault("iam_user_policy_risk", [])
+            self._mark_service_failed(result, "iam", f"{code}: {message}")
 
     def _collect_security_groups(self, session: boto3.Session, result: ScanResult) -> None:
         try:
@@ -117,11 +141,13 @@ class AWSProvider:
                 )
 
             result.data["security_groups"] = normalized
+            self._mark_service_success(result, "ec2")
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "Unknown")
             message = exc.response.get("Error", {}).get("Message", str(exc))
             result.errors.append(f"Security Group scan failed: {code}: {message}")
             result.data.setdefault("security_groups", [])
+            self._mark_service_failed(result, "ec2", f"{code}: {message}")
 
     def _collect_s3_bucket_security(self, s3_client, bucket_names: list[str]) -> list[dict]:
         security: list[dict] = []
@@ -278,3 +304,18 @@ class AWSProvider:
                 return True
 
         return False
+
+    def _mark_service_success(self, result: ScanResult, service: str) -> None:
+        status = result.data.setdefault("service_status", {}).setdefault(service, {"status": "PENDING", "errors": []})
+        if status["status"] == "FAILED":
+            status["status"] = "PARTIAL"
+        elif status["status"] == "PENDING":
+            status["status"] = "SUCCESS"
+
+    def _mark_service_failed(self, result: ScanResult, service: str, message: str) -> None:
+        status = result.data.setdefault("service_status", {}).setdefault(service, {"status": "PENDING", "errors": []})
+        status["errors"].append(message)
+        if status["status"] == "SUCCESS":
+            status["status"] = "PARTIAL"
+        else:
+            status["status"] = "FAILED"

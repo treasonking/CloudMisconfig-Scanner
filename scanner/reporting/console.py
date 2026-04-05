@@ -44,6 +44,19 @@ class ConsoleReporter:
             lines.extend([f"- {g.get('group_id', '-')} ({g.get('group_name', '-')})" for g in groups])
         lines.append("")
 
+        lines.append("=== Service Status ===")
+        service_status = result.data.get("service_status", {})
+        if not service_status:
+            lines.append("서비스 상태 정보가 없습니다.")
+        else:
+            for svc, status in service_status.items():
+                state = status.get("status", "UNKNOWN")
+                errors = status.get("errors", [])
+                lines.append(f"- {svc.upper()}: {state}")
+                for err in errors:
+                    lines.append(f"  -> {err}")
+        lines.append("")
+
         lines.append("=== Checks ===")
         if not result.findings:
             lines.append("체크 결과가 없습니다.")

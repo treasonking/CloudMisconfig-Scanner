@@ -44,7 +44,12 @@ def scan(profile: str = Query("default"), region: str = Query("ap-northeast-2"))
         "total": len(result.findings),
         "fail": sum(1 for f in result.findings if f.status == "FAIL"),
         "pass": sum(1 for f in result.findings if f.status == "PASS"),
+        "critical": sum(1 for f in result.findings if f.severity == "CRITICAL"),
+        "high": sum(1 for f in result.findings if f.severity == "HIGH"),
+        "medium": sum(1 for f in result.findings if f.severity == "MEDIUM"),
+        "low_info": sum(1 for f in result.findings if f.severity in {"LOW", "INFO"}),
     }
+    payload["service_status"] = result.data.get("service_status", {})
     return payload
 
 

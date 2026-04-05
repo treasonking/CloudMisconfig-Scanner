@@ -43,6 +43,18 @@ uvicorn app.web:app --reload --port 8000
 - `GET /results`
 - `GET /report/{filename}`
 
+## 테스트 실행
+```bash
+python -m pytest -q
+```
+
+## 서비스별 상태 표준화
+- 스캔 결과에 `service_status`를 포함합니다.
+- 서비스별 상태 값:
+  - `SUCCESS`: 해당 서비스 수집 성공
+  - `FAILED`: 해당 서비스 수집 실패
+  - `PARTIAL`: 일부 성공 + 일부 실패
+
 ## 현재 체크 ID
 - `AWS.S3.PublicExposure`
 - `AWS.S3.EncryptionEnabled`
