@@ -16,14 +16,14 @@ AWS 환경에서 자주 발생하는 보안 오구성을 자동으로 탐지하�
   - JSON 저장 (`reports/scan-YYYYMMDD-HHMMSS.json`)
   - HTML 저장 (`reports/scan-YYYYMMDD-HHMMSS.html`)
 
-## 실행 방법
+## CLI 실행
 
 ### 1) 의존성 설치
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 2) 스캔 실행 (CLI)
+### 2) 스캔 실행
 ```bash
 python app/main.py scan --profile default --region ap-northeast-2
 ```
@@ -32,6 +32,16 @@ python app/main.py scan --profile default --region ap-northeast-2
 ```bash
 python app/main.py
 ```
+
+## Web API 실행 (FastAPI)
+```bash
+uvicorn app.web:app --reload --port 8000
+```
+
+엔드포인트:
+- `GET /scan?profile=default&region=ap-northeast-2`
+- `GET /results`
+- `GET /report/{filename}`
 
 ## 현재 체크 ID
 - `AWS.S3.PublicExposure`
@@ -45,6 +55,7 @@ python app/main.py
 cloudmisconfig-scanner/
 ├─ app/
 │  ├─ main.py
+│  ├─ web.py
 │  └─ templates/
 │     └─ report.html.j2
 ├─ scanner/
@@ -59,9 +70,9 @@ cloudmisconfig-scanner/
 ```
 
 ## 진행 현황
-- 완료: 1~12단계 핵심 범위
-  - 인증 연결, 공통 구조, S3/IAM/SG 점검, 위험도/권고사항, JSON/HTML, CLI
+- 완료: 1~13단계 핵심 범위
+  - 인증 연결, 공통 구조, S3/IAM/SG 점검, 위험도/권고사항, JSON/HTML, CLI, FastAPI 최소 API
 - 다음 권장 단계
-  - FastAPI `/scan`, `/results`, `/report/{id}`
-  - 부분 실패 상세화(권한 부족 시 서비스별 degrade)
-  - 시나리오 테스트 코드 확장
+  - 서비스별 부분 실패 UI/응답 표준화 강화
+  - 시나리오 기반 테스트 코드 확장
+  - GitHub Actions CI + 린트/테스트 자동화

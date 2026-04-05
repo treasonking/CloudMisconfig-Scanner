@@ -13,6 +13,7 @@ from scanner.checks.aws_checks import (
     S3PublicExposureCheck,
     SecurityGroupExposureCheck,
 )
+from scanner.core.interfaces import Reporter
 from scanner.core.scanner import MisconfigScanner
 from scanner.providers.aws.provider import AWSProvider
 from scanner.reporting.console import ConsoleReporter
@@ -20,15 +21,23 @@ from scanner.reporting.html_reporter import HtmlReporter
 from scanner.reporting.json_reporter import JsonReporter
 
 
-def run_scan(profile_name: str | None = "default", region_name: str = "ap-northeast-2"):
+def default_reporters() -> list[Reporter]:
+    return [
+        ConsoleReporter(),
+        JsonReporter(output_dir=ROOT / "reports"),
+        HtmlReporter(output_dir=ROOT / "reports", template_dir=ROOT / "app" / "templates"),
+    ]
+
+
+def build_scanner(
+    profile_name: str | None = "default",
+    region_name: str = "ap-northeast-2",
+    reporters: list[Reporter] | None = None,
+) -> MisconfigScanner:
     provider = AWSProvider(region_name=region_name, profile_name=profile_name)
-    scanner = MisconfigScanner(
+    return MisconfigScanner(
         provider=provider,
-        reporters=[
-            ConsoleReporter(),
-            JsonReporter(output_dir=ROOT / "reports"),
-            HtmlReporter(output_dir=ROOT / "reports", template_dir=ROOT / "app" / "templates"),
-        ],
+        reporters=reporters if reporters is not None else default_reporters(),
         checks=[
             S3PublicExposureCheck(),
             S3EncryptionCheck(),
@@ -37,6 +46,14 @@ def run_scan(profile_name: str | None = "default", region_name: str = "ap-northe
             SecurityGroupExposureCheck(),
         ],
     )
+
+
+def run_scan(
+    profile_name: str | None = "default",
+    region_name: str = "ap-northeast-2",
+    reporters: list[Reporter] | None = None,
+):
+    scanner = build_scanner(profile_name=profile_name, region_name=region_name, reporters=reporters)
     return scanner.run()
 
 
