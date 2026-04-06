@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.main import load_scan_history, run_multi_scan, run_scan
+from scanner.exporters.csv_export import findings_to_csv, history_to_csv
 from scanner.reporting.html_reporter import HtmlReporter
 from scanner.reporting.json_reporter import JsonReporter
 
@@ -60,7 +61,17 @@ def _report_list(limit: int = 20, cursor: int = 0) -> tuple[list[dict], str | No
 def home():
     return {
         "message": "CloudMisconfig Scanner API",
-        "endpoints": ["/scan", "/scan-assume-role", "/scan-multi", "/results", "/trend", "/report/{filename}", "/dashboard"],
+        "endpoints": [
+            "/scan",
+            "/scan-assume-role",
+            "/scan-multi",
+            "/results",
+            "/trend",
+            "/export/findings.csv",
+            "/export/history.csv",
+            "/report/{filename}",
+            "/dashboard",
+        ],
     }
 
 
@@ -133,6 +144,34 @@ def results(limit: int = Query(20, ge=1, le=100), cursor: str | None = Query(Non
 def trend(limit: int = Query(20, ge=1, le=100)):
     history = load_scan_history(limit=limit)
     return {"history": history}
+
+
+@app.get("/export/findings.csv")
+def export_findings_csv():
+    reports, _ = _report_list(limit=50, cursor=0)
+    latest_json = next((r for r in reports if r["type"] == "json"), None)
+    if not latest_json:
+        raise HTTPException(status_code=404, detail="No JSON report found")
+
+    import json
+
+    payload = json.loads(Path(latest_json["path"]).read_text(encoding="utf-8"))
+    csv_text = findings_to_csv(payload.get("findings", []))
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="findings-latest.csv"'},
+    )
+
+
+@app.get("/export/history.csv")
+def export_history_csv(limit: int = Query(20, ge=1, le=200)):
+    csv_text = history_to_csv(load_scan_history(limit=limit))
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="scan-history.csv"'},
+    )
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

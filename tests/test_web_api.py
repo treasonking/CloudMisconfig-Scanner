@@ -125,3 +125,36 @@ def test_trend_endpoint_returns_history(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["history"]) == 1
+
+
+def test_export_history_csv(monkeypatch):
+    monkeypatch.setattr(
+        "app.web.load_scan_history",
+        lambda limit=20: [{"filename": "scan-1.json", "started_at": "x", "total": 2, "fail": 1, "pass": 1, "errors": 0}],
+    )
+    client = TestClient(app)
+
+    response = client.get("/export/history.csv?limit=5")
+
+    assert response.status_code == 200
+    assert "text/csv" in response.headers.get("content-type", "")
+    assert "filename,started_at,total,fail,pass,errors" in response.text
+
+
+def test_export_findings_csv(tmp_path, monkeypatch):
+    report_file = tmp_path / "scan-1.json"
+    report_file.write_text(
+        '{"findings":[{"check_id":"A","status":"FAIL","severity":"HIGH","resource":"r","message":"m","recommendation":"x"}]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "app.web._report_list",
+        lambda limit=50, cursor=0: ([{"type": "json", "path": str(report_file), "filename": "scan-1.json"}], None),
+    )
+    client = TestClient(app)
+
+    response = client.get("/export/findings.csv")
+
+    assert response.status_code == 200
+    assert "check_id,status,severity,resource,message,recommendation" in response.text
+    assert "A,FAIL,HIGH,r,m,x" in response.text

@@ -18,6 +18,7 @@ from scanner.checks.aws_checks import (
     SecurityGroupExposureCheck,
 )
 from scanner.core.interfaces import Reporter
+from scanner.notifications.email import send_email_smtp
 from scanner.core.scanner import MisconfigScanner
 from scanner.notifications.slack import send_slack_message
 from scanner.providers.aws.provider import AWSProvider
@@ -246,6 +247,36 @@ def notify_slack_for_aggregate(aggregate: dict, webhook_url: str) -> None:
     send_slack_message(webhook_url, text)
 
 
+def notify_email_for_aggregate(
+    aggregate: dict,
+    recipient: str,
+    smtp_host: str,
+    smtp_port: int,
+    sender: str,
+    smtp_user: str | None = None,
+    smtp_password: str | None = None,
+) -> None:
+    totals = aggregate["totals"]
+    subject = "CloudMisconfig Scan Summary"
+    body = (
+        f"targets={totals['profiles']}\n"
+        f"findings={totals['findings']}\n"
+        f"fail={totals['fail']}\n"
+        f"pass={totals['pass']}\n"
+        f"errors={totals['errors']}\n"
+    )
+    send_email_smtp(
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        sender=sender,
+        recipient=recipient,
+        subject=subject,
+        body=body,
+        username=smtp_user,
+        password=smtp_password,
+    )
+
+
 def print_plan(mode: str = "today") -> None:
     if mode == "weekly":
         print(WEEKLY_ROADMAP)
@@ -302,6 +333,12 @@ def main() -> int:
     scan_parser.add_argument("--role-arn", default=None, help="AssumeRole target ARN")
     scan_parser.add_argument("--external-id", default=None, help="AssumeRole external id")
     scan_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+    scan_parser.add_argument("--email-to", default=None, help="Email recipient for summary notification")
+    scan_parser.add_argument("--smtp-host", default=None, help="SMTP host")
+    scan_parser.add_argument("--smtp-port", default=587, type=int, help="SMTP port")
+    scan_parser.add_argument("--smtp-from", default=None, help="SMTP sender email")
+    scan_parser.add_argument("--smtp-user", default=None, help="SMTP username")
+    scan_parser.add_argument("--smtp-password", default=None, help="SMTP password")
 
     scan_multi_parser = sub.add_parser("scan-multi", help="Run AWS scan for multiple profiles")
     scan_multi_parser.add_argument(
@@ -321,12 +358,24 @@ def main() -> int:
         help="Do not write aggregated summary file under reports/",
     )
     scan_multi_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+    scan_multi_parser.add_argument("--email-to", default=None, help="Email recipient for summary notification")
+    scan_multi_parser.add_argument("--smtp-host", default=None, help="SMTP host")
+    scan_multi_parser.add_argument("--smtp-port", default=587, type=int, help="SMTP port")
+    scan_multi_parser.add_argument("--smtp-from", default=None, help="SMTP sender email")
+    scan_multi_parser.add_argument("--smtp-user", default=None, help="SMTP username")
+    scan_multi_parser.add_argument("--smtp-password", default=None, help="SMTP password")
 
     assume_multi_parser = sub.add_parser("scan-assume-role-multi", help="Run multi-account scan via AssumeRole targets file")
     assume_multi_parser.add_argument("--targets-file", required=True, help="Targets file: role_arn[,source_profile][,external_id]")
     assume_multi_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
     assume_multi_parser.add_argument("--no-save", action="store_true", help="Do not write aggregated summary file")
     assume_multi_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+    assume_multi_parser.add_argument("--email-to", default=None, help="Email recipient for summary notification")
+    assume_multi_parser.add_argument("--smtp-host", default=None, help="SMTP host")
+    assume_multi_parser.add_argument("--smtp-port", default=587, type=int, help="SMTP port")
+    assume_multi_parser.add_argument("--smtp-from", default=None, help="SMTP sender email")
+    assume_multi_parser.add_argument("--smtp-user", default=None, help="SMTP username")
+    assume_multi_parser.add_argument("--smtp-password", default=None, help="SMTP password")
 
     history_parser = sub.add_parser("history", help="Show recent scan history")
     history_parser.add_argument("--limit", default=20, type=int, help="Number of recent scan files to summarize")
@@ -357,6 +406,18 @@ def main() -> int:
                 },
             }
             notify_slack_for_aggregate(aggregate, args.slack_webhook)
+        if getattr(args, "email_to", None):
+            if not (args.smtp_host and args.smtp_from):
+                raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
+            notify_email_for_aggregate(
+                aggregate=aggregate,
+                recipient=args.email_to,
+                smtp_host=args.smtp_host,
+                smtp_port=args.smtp_port,
+                sender=args.smtp_from,
+                smtp_user=args.smtp_user,
+                smtp_password=args.smtp_password,
+            )
         return 0
 
     if args.command == "scan-multi":
@@ -370,6 +431,18 @@ def main() -> int:
             print(f"[REPORT] Multi summary saved: {output_file}")
         if args.slack_webhook:
             notify_slack_for_aggregate(aggregate, args.slack_webhook)
+        if args.email_to:
+            if not (args.smtp_host and args.smtp_from):
+                raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
+            notify_email_for_aggregate(
+                aggregate=aggregate,
+                recipient=args.email_to,
+                smtp_host=args.smtp_host,
+                smtp_port=args.smtp_port,
+                sender=args.smtp_from,
+                smtp_user=args.smtp_user,
+                smtp_password=args.smtp_password,
+            )
         return 0
 
     if args.command == "scan-assume-role-multi":
@@ -383,6 +456,18 @@ def main() -> int:
             print(f"[REPORT] Multi summary saved: {output_file}")
         if args.slack_webhook:
             notify_slack_for_aggregate(aggregate, args.slack_webhook)
+        if args.email_to:
+            if not (args.smtp_host and args.smtp_from):
+                raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
+            notify_email_for_aggregate(
+                aggregate=aggregate,
+                recipient=args.email_to,
+                smtp_host=args.smtp_host,
+                smtp_port=args.smtp_port,
+                sender=args.smtp_from,
+                smtp_user=args.smtp_user,
+                smtp_password=args.smtp_password,
+            )
         return 0
 
     if args.command == "plan":

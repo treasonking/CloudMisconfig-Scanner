@@ -63,6 +63,10 @@ Slack 알림 예시:
 ```bash
 python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
 ```
+이메일 알림 예시:
+```bash
+python app/main.py scan-multi --profiles default,prod --email-to you@example.com --smtp-host smtp.example.com --smtp-from scanner@example.com --smtp-user user --smtp-password pass
+```
 
 또는 기본값으로 실행:
 ```bash
@@ -85,6 +89,8 @@ uvicorn app.web:app --reload --port 8000
 - `GET /scan-multi?profiles=default,prod&region=ap-northeast-2`
 - `GET /results?limit=20&cursor=0`
 - `GET /trend?limit=20`
+- `GET /export/findings.csv`
+- `GET /export/history.csv?limit=20`
 - `GET /report/{filename}`
 - `GET /dashboard`
 - `GET /dashboard?only_fail=true&severity=HIGH`
