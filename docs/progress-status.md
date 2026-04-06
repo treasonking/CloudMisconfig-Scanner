@@ -13,6 +13,7 @@
 - 고도화 4차 완성도: 100% (로컬 스케줄링 명령 `schedule-local`, 알림 공통화, 문서 반영)
 - 고도화 5차 완성도: 100% (EventBridge 설정 계획 명령 `plan-eventbridge`, targets JSON 생성, 테스트 추가)
 - 고도화 6차 완성도: 100% (CloudFormation 템플릿 `infra/eventbridge-lambda-schedule.yaml` 추가)
+- 고도화 7차 완성도: 100% (Step Functions 연동 템플릿 `infra/eventbridge-sfn-schedule.yaml` 추가)
 - 사유:
   - 핵심 스캔(S3/IAM/SG), 위험도/권고사항, JSON/HTML, CLI, FastAPI, 대시보드, 테스트, CI까지 완료
   - 19/20단계 문서(주차 계획/오늘 체크리스트), CLI plan 명령, 멀티 프로필 스캔 명령/API, 입력 검증/헬스체크 완료
@@ -20,8 +21,9 @@
   - Slack/Email 알림 + 로컬 스케줄링(`schedule-local`)까지 적용 완료
   - EventBridge 규칙/타겟 설정 커맨드 및 payload 자동 생성(`plan-eventbridge`) 완료
   - EventBridge-Lambda 스케줄 배포용 IaC 템플릿 추가 완료
+  - EventBridge-Step Functions 스케줄 + invoke role 포함 IaC 템플릿 추가 완료
 
 ## 다음 우선순위
 1. 포트폴리오 최종 정리 (README 이미지/캡처 포함)
-2. Step Functions 타겟용 템플릿/샘플 payload 추가
+2. Step Functions 워크플로우 예시(상태머신 정의 JSON) 추가
 3. PR 정리 및 merge 준비

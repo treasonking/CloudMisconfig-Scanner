@@ -76,6 +76,10 @@ CloudFormation으로 EventBridge 스케줄 배포:
 ```bash
 aws cloudformation deploy --template-file infra/eventbridge-lambda-schedule.yaml --stack-name cloudmisconfig-schedule --parameter-overrides RuleName=cloudmisconfig-daily ScheduleExpression="rate(1 day)" TargetLambdaArn=arn:aws:lambda:ap-northeast-2:111111111111:function:cloudmisconfig-runner
 ```
+CloudFormation으로 EventBridge -> Step Functions 스케줄 배포:
+```bash
+aws cloudformation deploy --template-file infra/eventbridge-sfn-schedule.yaml --stack-name cloudmisconfig-sfn-schedule --capabilities CAPABILITY_NAMED_IAM --parameter-overrides RuleName=cloudmisconfig-daily-sfn ScheduleExpression="rate(1 day)" StateMachineArn=arn:aws:states:ap-northeast-2:111111111111:stateMachine:cloudmisconfig-runner ScannerProfile=default ScannerRegion=ap-northeast-2
+```
 Slack 알림 예시:
 ```bash
 python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
@@ -155,6 +159,7 @@ cloudmisconfig-scanner/
 │  └─ progress-status.md
 ├─ infra/
 │  └─ eventbridge-lambda-schedule.yaml
+│  └─ eventbridge-sfn-schedule.yaml
 ├─ reports/
 ├─ tests/
 ├─ .github/workflows/ci.yml
@@ -173,6 +178,7 @@ cloudmisconfig-scanner/
 - 멀티 계정 AssumeRole 스캔 확장 완료
 - 알림(Slack/Email) + 로컬 스케줄링 완료
 - EventBridge 설정 계획(`plan-eventbridge`) 자동 생성 완료
+- EventBridge -> Step Functions 스케줄 IaC 템플릿 완료
 - 규칙 수 확대 및 서비스별 권한 부족 상황에 대한 부분 실패 세분화 예정
 - 클라우드 네이티브 스케줄링 실제 실행 타겟(Lambda/Step Functions) 연동 고도화 예정
 

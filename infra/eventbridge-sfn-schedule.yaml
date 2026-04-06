@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EventBridge scheduled rule for CloudMisconfig scanner Step Functions target
+
+Parameters:
+  RuleName:
+    Type: String
+    Default: cloudmisconfig-daily-sfn
+  ScheduleExpression:
+    Type: String
+    Default: rate(1 day)
+  EventBusName:
+    Type: String
+    Default: default
+  StateMachineArn:
+    Type: String
+    Description: Step Functions state machine ARN
+  EventBridgeInvokeRoleName:
+    Type: String
+    Default: cloudmisconfig-events-sfn-invoke-role
+  ScannerProfile:
+    Type: String
+    Default: default
+  ScannerRegion:
+    Type: String
+    Default: ap-northeast-2
+
+Resources:
+  EventBridgeInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref EventBridgeInvokeRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowStartExecution
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Ref StateMachineArn
+
+  ScannerScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref RuleName
+      Description: Scheduled trigger for CloudMisconfig scanner Step Functions workflow
+      EventBusName: !Ref EventBusName
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Id: CloudMisconfigStateMachineTarget
+          Arn: !Ref StateMachineArn
+          RoleArn: !GetAtt EventBridgeInvokeRole.Arn
+          InputTransformer:
+            InputPathsMap:
+              time: "$.time"
+            InputTemplate: !Sub |
+              {
+                "triggered_at": <time>,
+                "scan_mode": "scan",
+                "profile": "${ScannerProfile}",
+                "region": "${ScannerRegion}"
+              }
+
+Outputs:
+  RuleArn:
+    Description: EventBridge rule ARN
+    Value: !GetAtt ScannerScheduleRule.Arn
+  EventBridgeInvokeRoleArn:
+    Description: IAM role ARN used by EventBridge to start Step Functions
+    Value: !GetAtt EventBridgeInvokeRole.Arn
