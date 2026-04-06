@@ -112,6 +112,7 @@ cloudmisconfig-scanner/
 
 ## 데모 가이드
 - 1) `python app/main.py scan --profile default` 실행
+- 1-1) `python app/main.py plan --mode today` 또는 `--mode weekly`로 실행 계획 확인
 - 2) 생성된 HTML 리포트 열람: `reports/scan-*.html`
 - 3) API 대시보드 확인: `http://localhost:8000/dashboard`
 
@@ -120,3 +121,7 @@ cloudmisconfig-scanner/
 - 멀티 계정 AssumeRole 스캔 확장 예정
 - 규칙 수 확대 및 서비스별 권한 부족 상황에 대한 부분 실패 세분화 예정
 - 알림(Slack/Email) 및 배치 스케줄링(CloudWatch/EventBridge) 연동 예정
+
+## 진행 단계 요약
+- 완료: 1~20단계 (MVP)
+- 현재 완성도: 약 95%
