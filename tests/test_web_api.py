@@ -34,7 +34,7 @@ def _fake_result() -> ScanResult:
 
 
 def test_scan_endpoint_returns_summary_and_service_status(monkeypatch):
-    monkeypatch.setattr("app.web.run_scan", lambda profile_name, region_name, reporters: _fake_result())
+    monkeypatch.setattr("app.web.run_scan", lambda profile_name, region_name, reporters, role_arn=None, external_id=None: _fake_result())
     client = TestClient(app)
 
     response = client.get("/scan")
@@ -111,3 +111,17 @@ def test_dashboard_endpoint_rejects_invalid_severity():
     response = client.get("/dashboard?severity=INVALID")
 
     assert response.status_code == 400
+
+
+def test_trend_endpoint_returns_history(monkeypatch):
+    monkeypatch.setattr(
+        "app.web.load_scan_history",
+        lambda limit=20: [{"filename": "scan-1.json", "total": 2, "fail": 1, "pass": 1, "errors": 0, "started_at": "x"}],
+    )
+    client = TestClient(app)
+
+    response = client.get("/trend?limit=5")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["history"]) == 1

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.main import run_multi_scan, run_scan
+from app.main import load_scan_history, run_multi_scan, run_scan
 from scanner.reporting.html_reporter import HtmlReporter
 from scanner.reporting.json_reporter import JsonReporter
 
@@ -60,7 +60,7 @@ def _report_list(limit: int = 20, cursor: int = 0) -> tuple[list[dict], str | No
 def home():
     return {
         "message": "CloudMisconfig Scanner API",
-        "endpoints": ["/scan", "/scan-assume-role", "/scan-multi", "/results", "/report/{filename}", "/dashboard"],
+        "endpoints": ["/scan", "/scan-assume-role", "/scan-multi", "/results", "/trend", "/report/{filename}", "/dashboard"],
     }
 
 
@@ -129,6 +129,12 @@ def results(limit: int = Query(20, ge=1, le=100), cursor: str | None = Query(Non
     return {"reports": reports, "next_cursor": next_cursor}
 
 
+@app.get("/trend")
+def trend(limit: int = Query(20, ge=1, le=100)):
+    history = load_scan_history(limit=limit)
+    return {"history": history}
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     profile: str = Query("default"),
@@ -163,6 +169,7 @@ def dashboard(
 
     html = TEMPLATES.get_template("dashboard.html.j2").render(
         reports=reports,
+        trend=load_scan_history(limit=10),
         summary=summary,
         findings=shown_findings,
         profile=profile,

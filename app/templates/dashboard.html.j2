@@ -119,6 +119,38 @@
         </tbody>
       </table>
     </div>
+
+    <div class="card">
+      <h2>Recent Trend (JSON Scans)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Total</th>
+            <th>FAIL</th>
+            <th>PASS</th>
+            <th>Errors</th>
+            <th>Started</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if trend %}
+            {% for t in trend %}
+            <tr>
+              <td>{{ t.filename }}</td>
+              <td>{{ t.total }}</td>
+              <td class="status-fail">{{ t.fail }}</td>
+              <td class="status-pass">{{ t.pass }}</td>
+              <td>{{ t.errors }}</td>
+              <td>{{ t.started_at or '-' }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6">이력 데이터가 없습니다.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </body>
 </html>

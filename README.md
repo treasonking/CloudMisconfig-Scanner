@@ -68,6 +68,10 @@ python app/main.py scan-multi --profiles default,prod --slack-webhook https://ho
 ```bash
 python app/main.py
 ```
+이력 요약:
+```bash
+python app/main.py history --limit 20
+```
 
 ## Web API 실행 (FastAPI)
 ```bash
@@ -80,6 +84,7 @@ uvicorn app.web:app --reload --port 8000
 - `GET /scan-assume-role?role_arn=arn:aws:iam::111111111111:role/SecurityAudit&source_profile=default`
 - `GET /scan-multi?profiles=default,prod&region=ap-northeast-2`
 - `GET /results?limit=20&cursor=0`
+- `GET /trend?limit=20`
 - `GET /report/{filename}`
 - `GET /dashboard`
 - `GET /dashboard?only_fail=true&severity=HIGH`

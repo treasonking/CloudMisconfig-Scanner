@@ -253,6 +253,45 @@ def print_plan(mode: str = "today") -> None:
     print(TODAY_CHECKLIST)
 
 
+def load_scan_history(limit: int = 20) -> list[dict]:
+    reports_dir = ROOT / "reports"
+    if not reports_dir.exists():
+        return []
+
+    files = sorted(reports_dir.glob("scan-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    history: list[dict] = []
+    for path in files:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        findings = payload.get("findings", [])
+        history.append(
+            {
+                "filename": path.name,
+                "started_at": payload.get("context", {}).get("started_at"),
+                "total": len(findings),
+                "fail": sum(1 for f in findings if f.get("status") == "FAIL"),
+                "pass": sum(1 for f in findings if f.get("status") == "PASS"),
+                "errors": len(payload.get("errors", [])),
+            }
+        )
+    return history
+
+
+def print_scan_history(limit: int = 20) -> None:
+    history = load_scan_history(limit=limit)
+    print("[Scan History]")
+    if not history:
+        print("- no scan history found")
+        return
+    for item in history:
+        print(
+            f"- {item['filename']}: total={item['total']}, fail={item['fail']}, "
+            f"pass={item['pass']}, errors={item['errors']}, started_at={item['started_at']}"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cloud misconfiguration scanner")
     sub = parser.add_subparsers(dest="command")
@@ -288,6 +327,9 @@ def main() -> int:
     assume_multi_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
     assume_multi_parser.add_argument("--no-save", action="store_true", help="Do not write aggregated summary file")
     assume_multi_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+
+    history_parser = sub.add_parser("history", help="Show recent scan history")
+    history_parser.add_argument("--limit", default=20, type=int, help="Number of recent scan files to summarize")
 
     plan_parser = sub.add_parser("plan", help="Print execution plan/checklist")
     plan_parser.add_argument("--mode", default="today", choices=["today", "weekly"], help="Plan mode")
@@ -345,6 +387,9 @@ def main() -> int:
 
     if args.command == "plan":
         print_plan(mode=args.mode)
+        return 0
+    if args.command == "history":
+        print_scan_history(limit=args.limit)
         return 0
 
     parser.print_help()
