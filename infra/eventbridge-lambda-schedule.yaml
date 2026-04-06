@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EventBridge scheduled rule for CloudMisconfig scanner Lambda target
+
+Parameters:
+  RuleName:
+    Type: String
+    Default: cloudmisconfig-daily
+  ScheduleExpression:
+    Type: String
+    Default: rate(1 day)
+  TargetLambdaArn:
+    Type: String
+    Description: Lambda ARN to invoke on schedule
+  EventBusName:
+    Type: String
+    Default: default
+
+Resources:
+  ScannerScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref RuleName
+      Description: Scheduled trigger for CloudMisconfig scanner
+      EventBusName: !Ref EventBusName
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Id: CloudMisconfigTarget
+          Arn: !Ref TargetLambdaArn
+          Input: '{"scan_mode":"scan","profile":"default","region":"ap-northeast-2"}'
+
+  LambdaInvokePermissionForEvents:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TargetLambdaArn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScannerScheduleRule.Arn
+
+Outputs:
+  RuleArn:
+    Description: EventBridge rule ARN
+    Value: !GetAtt ScannerScheduleRule.Arn

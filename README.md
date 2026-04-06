@@ -72,6 +72,10 @@ EventBridge 설정 계획 생성:
 python app/main.py plan-eventbridge --rule-name cloudmisconfig-daily --schedule-expression "rate(1 day)" --target-arn arn:aws:lambda:ap-northeast-2:111111111111:function:cloudmisconfig-runner --invoke-role-arn arn:aws:iam::111111111111:role/EventBridgeInvokeScanner --scan-mode scan --profile default
 ```
 위 명령은 `reports/eventbridge-targets-*.json`을 만들고, `aws events put-rule / put-targets` 적용 커맨드를 출력합니다.
+CloudFormation으로 EventBridge 스케줄 배포:
+```bash
+aws cloudformation deploy --template-file infra/eventbridge-lambda-schedule.yaml --stack-name cloudmisconfig-schedule --parameter-overrides RuleName=cloudmisconfig-daily ScheduleExpression="rate(1 day)" TargetLambdaArn=arn:aws:lambda:ap-northeast-2:111111111111:function:cloudmisconfig-runner
+```
 Slack 알림 예시:
 ```bash
 python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
@@ -149,6 +153,8 @@ cloudmisconfig-scanner/
 │  ├─ interview-notes.md
 │  ├─ pr-summary.md
 │  └─ progress-status.md
+├─ infra/
+│  └─ eventbridge-lambda-schedule.yaml
 ├─ reports/
 ├─ tests/
 ├─ .github/workflows/ci.yml
