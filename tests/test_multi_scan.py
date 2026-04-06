@@ -1,6 +1,7 @@
+import json
 from datetime import datetime, timezone
 
-from app.main import run_multi_scan
+from app.main import run_multi_scan, save_multi_scan_summary
 from scanner.core.models import ScanContext, ScanResult, Finding
 
 
@@ -50,3 +51,17 @@ def test_run_multi_scan_aggregates_profiles(monkeypatch):
     assert out["totals"]["fail"] == 3
     assert out["totals"]["pass"] == 3
     assert out["totals"]["errors"] == 1
+
+
+def test_save_multi_scan_summary_writes_json(tmp_path, monkeypatch):
+    aggregate = {
+        "profiles": [{"profile": "default", "total": 1, "fail": 0, "pass": 1, "errors": 0}],
+        "totals": {"profiles": 1, "findings": 1, "fail": 0, "pass": 1, "errors": 0},
+    }
+    monkeypatch.setattr("app.main.ROOT", tmp_path)
+
+    output = save_multi_scan_summary(aggregate)
+
+    assert output.exists()
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["totals"]["profiles"] == 1

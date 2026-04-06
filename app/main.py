@@ -1,5 +1,7 @@
 from pathlib import Path
 import argparse
+import json
+from datetime import datetime, timezone
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,6 +124,15 @@ def run_multi_scan(profiles: list[str], region_name: str = "ap-northeast-2") -> 
     return aggregate
 
 
+def save_multi_scan_summary(aggregate: dict) -> Path:
+    reports_dir = ROOT / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    output_file = reports_dir / f"multi-scan-{timestamp}.json"
+    output_file.write_text(json.dumps(aggregate, ensure_ascii=False, indent=2), encoding="utf-8")
+    return output_file
+
+
 def print_multi_scan_summary(aggregate: dict) -> None:
     print("[Multi Profile Scan Summary]")
     for item in aggregate["profiles"]:
@@ -157,6 +168,11 @@ def main() -> int:
         help="Comma-separated profile names (e.g., default,prod,dev)",
     )
     scan_multi_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
+    scan_multi_parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Do not write aggregated summary file under reports/",
+    )
     plan_parser = sub.add_parser("plan", help="Print execution plan/checklist")
     plan_parser.add_argument("--mode", default="today", choices=["today", "weekly"], help="Plan mode")
 
@@ -171,6 +187,9 @@ def main() -> int:
         profiles = [p.strip() for p in args.profiles.split(",") if p.strip()]
         aggregate = run_multi_scan(profiles=profiles, region_name=args.region)
         print_multi_scan_summary(aggregate)
+        if not args.no_save:
+            output_file = save_multi_scan_summary(aggregate)
+            print(f"[REPORT] Multi summary saved: {output_file}")
         return 0
     if args.command == "plan":
         print_plan(mode=args.mode)

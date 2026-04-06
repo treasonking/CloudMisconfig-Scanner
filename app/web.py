@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.main import run_scan
+from app.main import run_multi_scan, run_scan
 from scanner.reporting.html_reporter import HtmlReporter
 from scanner.reporting.json_reporter import JsonReporter
 
@@ -59,7 +59,7 @@ def _report_list(limit: int = 20, cursor: int = 0) -> tuple[list[dict], str | No
 def home():
     return {
         "message": "CloudMisconfig Scanner API",
-        "endpoints": ["/scan", "/results", "/report/{filename}", "/dashboard"],
+        "endpoints": ["/scan", "/scan-multi", "/results", "/report/{filename}", "/dashboard"],
     }
 
 
@@ -78,6 +78,17 @@ def scan(profile: str = Query("default"), region: str = Query("ap-northeast-2"))
     }
     payload["service_status"] = result.data.get("service_status", {})
     return payload
+
+
+@app.get("/scan-multi")
+def scan_multi(
+    profiles: str = Query(..., description="Comma-separated AWS profiles"),
+    region: str = Query("ap-northeast-2"),
+):
+    profile_list = [p.strip() for p in profiles.split(",") if p.strip()]
+    if not profile_list:
+        raise HTTPException(status_code=400, detail="At least one profile is required")
+    return run_multi_scan(profiles=profile_list, region_name=region)
 
 
 @app.get("/results")

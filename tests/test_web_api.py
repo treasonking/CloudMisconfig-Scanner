@@ -55,3 +55,21 @@ def test_results_endpoint_has_cursor():
     payload = response.json()
     assert "reports" in payload
     assert "next_cursor" in payload
+
+
+def test_scan_multi_endpoint_returns_aggregate(monkeypatch):
+    monkeypatch.setattr(
+        "app.web.run_multi_scan",
+        lambda profiles, region_name: {
+            "profiles": [{"profile": p, "total": 1, "fail": 0, "pass": 1, "errors": 0} for p in profiles],
+            "totals": {"profiles": len(profiles), "findings": len(profiles), "fail": 0, "pass": len(profiles), "errors": 0},
+        },
+    )
+    client = TestClient(app)
+
+    response = client.get("/scan-multi?profiles=default,prod")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["totals"]["profiles"] == 2
+    assert len(payload["profiles"]) == 2
