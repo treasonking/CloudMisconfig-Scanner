@@ -237,6 +237,78 @@ def save_multi_scan_summary(aggregate: dict) -> Path:
     return output_file
 
 
+def build_eventbridge_targets(
+    target_id: str,
+    target_arn: str,
+    invoke_role_arn: str,
+    scan_mode: str,
+    region_name: str,
+    profile_name: str | None = None,
+    role_arn: str | None = None,
+    external_id: str | None = None,
+    profiles: str | None = None,
+    profiles_file: str | None = None,
+    assume_role_targets_file: str | None = None,
+) -> list[dict]:
+    payload = {
+        "scan_mode": scan_mode,
+        "region": region_name,
+    }
+    if profile_name:
+        payload["profile"] = profile_name
+    if role_arn:
+        payload["role_arn"] = role_arn
+    if external_id:
+        payload["external_id"] = external_id
+    if profiles:
+        payload["profiles"] = profiles
+    if profiles_file:
+        payload["profiles_file"] = profiles_file
+    if assume_role_targets_file:
+        payload["targets_file"] = assume_role_targets_file
+
+    return [
+        {
+            "Id": target_id,
+            "Arn": target_arn,
+            "RoleArn": invoke_role_arn,
+            "Input": json.dumps(payload, ensure_ascii=False),
+        }
+    ]
+
+
+def save_eventbridge_targets(rule_name: str, targets: list[dict]) -> Path:
+    reports_dir = ROOT / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    output_file = reports_dir / f"eventbridge-targets-{rule_name}-{timestamp}.json"
+    output_file.write_text(json.dumps(targets, ensure_ascii=False, indent=2), encoding="utf-8")
+    return output_file
+
+
+def print_eventbridge_plan(
+    rule_name: str,
+    schedule_expression: str,
+    event_bus_name: str,
+    targets_file: Path,
+    region_name: str,
+) -> None:
+    put_rule_cmd = (
+        f'aws events put-rule --name "{rule_name}" --schedule-expression "{schedule_expression}" '
+        f'--state ENABLED --event-bus-name "{event_bus_name}" --region "{region_name}"'
+    )
+    put_targets_cmd = (
+        f'aws events put-targets --rule "{rule_name}" --event-bus-name "{event_bus_name}" '
+        f'--targets "file://{targets_file}" --region "{region_name}"'
+    )
+
+    print("[EventBridge Plan]")
+    print(f"- targets file: {targets_file}")
+    print("- apply commands:")
+    print(put_rule_cmd)
+    print(put_targets_cmd)
+
+
 def print_multi_scan_summary(aggregate: dict) -> None:
     print("[Multi Scan Summary]")
     for item in aggregate["profiles"]:
@@ -460,6 +532,35 @@ def main() -> int:
     assume_multi_parser.add_argument("--smtp-user", default=None, help="SMTP username")
     assume_multi_parser.add_argument("--smtp-password", default=None, help="SMTP password")
 
+    eventbridge_parser = sub.add_parser("plan-eventbridge", help="Generate EventBridge rule/targets setup plan")
+    eventbridge_parser.add_argument("--rule-name", required=True, help="EventBridge rule name")
+    eventbridge_parser.add_argument(
+        "--schedule-expression",
+        default="rate(1 hour)",
+        help='EventBridge schedule expression, e.g. "rate(1 hour)" or "cron(0 0 * * ? *)"',
+    )
+    eventbridge_parser.add_argument("--event-bus-name", default="default", help="Event bus name")
+    eventbridge_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
+    eventbridge_parser.add_argument("--target-id", default="CloudMisconfigTarget", help="Event target id")
+    eventbridge_parser.add_argument("--target-arn", required=True, help="Event target ARN (Lambda/StepFunctions/etc.)")
+    eventbridge_parser.add_argument("--invoke-role-arn", required=True, help="IAM role ARN for EventBridge target invoke")
+    eventbridge_parser.add_argument(
+        "--scan-mode",
+        choices=["scan", "scan-multi", "scan-assume-role-multi"],
+        default="scan",
+        help="Scan mode payload for downstream target",
+    )
+    eventbridge_parser.add_argument("--profile", default="default", help="AWS profile payload (scan mode)")
+    eventbridge_parser.add_argument("--role-arn", default=None, help="AssumeRole ARN payload (scan mode)")
+    eventbridge_parser.add_argument("--external-id", default=None, help="AssumeRole external id payload (scan mode)")
+    eventbridge_parser.add_argument("--profiles", default=None, help="Comma-separated profiles payload (scan-multi mode)")
+    eventbridge_parser.add_argument("--profiles-file", default=None, help="profiles file payload (scan-multi mode)")
+    eventbridge_parser.add_argument(
+        "--targets-file",
+        default=None,
+        help="assume-role targets file payload (scan-assume-role-multi mode)",
+    )
+
     schedule_parser = sub.add_parser("schedule-local", help="Run scan job repeatedly in local scheduler loop")
     schedule_parser.add_argument(
         "--mode",
@@ -528,6 +629,35 @@ def main() -> int:
             output_file = save_multi_scan_summary(aggregate)
             print(f"[REPORT] Multi summary saved: {output_file}")
         _notify_from_args(args, aggregate)
+        return 0
+
+    if args.command == "plan-eventbridge":
+        if args.scan_mode == "scan-multi" and not (args.profiles or args.profiles_file):
+            raise SystemExit("--scan-mode scan-multi 사용 시 --profiles 또는 --profiles-file 이 필요합니다.")
+        if args.scan_mode == "scan-assume-role-multi" and not args.targets_file:
+            raise SystemExit("--scan-mode scan-assume-role-multi 사용 시 --targets-file 이 필요합니다.")
+
+        targets = build_eventbridge_targets(
+            target_id=args.target_id,
+            target_arn=args.target_arn,
+            invoke_role_arn=args.invoke_role_arn,
+            scan_mode=args.scan_mode,
+            region_name=args.region,
+            profile_name=args.profile,
+            role_arn=args.role_arn,
+            external_id=args.external_id,
+            profiles=args.profiles,
+            profiles_file=args.profiles_file,
+            assume_role_targets_file=args.targets_file,
+        )
+        output_file = save_eventbridge_targets(args.rule_name, targets)
+        print_eventbridge_plan(
+            rule_name=args.rule_name,
+            schedule_expression=args.schedule_expression,
+            event_bus_name=args.event_bus_name,
+            targets_file=output_file,
+            region_name=args.region,
+        )
         return 0
 
     if args.command == "schedule-local":

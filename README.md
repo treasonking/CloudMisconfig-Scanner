@@ -67,6 +67,11 @@ python app/main.py schedule-local --mode scan --profile default --every-minutes 
 ```bash
 python app/main.py schedule-local --mode scan-multi --profiles default,prod --every-minutes 30 --runs 4
 ```
+EventBridge 설정 계획 생성:
+```bash
+python app/main.py plan-eventbridge --rule-name cloudmisconfig-daily --schedule-expression "rate(1 day)" --target-arn arn:aws:lambda:ap-northeast-2:111111111111:function:cloudmisconfig-runner --invoke-role-arn arn:aws:iam::111111111111:role/EventBridgeInvokeScanner --scan-mode scan --profile default
+```
+위 명령은 `reports/eventbridge-targets-*.json`을 만들고, `aws events put-rule / put-targets` 적용 커맨드를 출력합니다.
 Slack 알림 예시:
 ```bash
 python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
@@ -161,8 +166,9 @@ cloudmisconfig-scanner/
 - 현재는 단일 계정/리전 중심 MVP
 - 멀티 계정 AssumeRole 스캔 확장 완료
 - 알림(Slack/Email) + 로컬 스케줄링 완료
+- EventBridge 설정 계획(`plan-eventbridge`) 자동 생성 완료
 - 규칙 수 확대 및 서비스별 권한 부족 상황에 대한 부분 실패 세분화 예정
-- 클라우드 네이티브 스케줄링(CloudWatch/EventBridge) 연동 예정
+- 클라우드 네이티브 스케줄링 실제 실행 타겟(Lambda/Step Functions) 연동 고도화 예정
 
 ## 진행 단계 요약
 - 완료: 1~20단계 (MVP) + 운영 안정화 확장 + 멀티 계정(AssumeRole) + 알림/스케줄링 고도화
