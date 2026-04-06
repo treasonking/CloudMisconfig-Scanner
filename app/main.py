@@ -3,6 +3,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -124,6 +125,19 @@ def _summarize_scan_result(result, target: str | None = None) -> dict:
         "fail": sum(1 for f in result.findings if f.status == "FAIL"),
         "pass": sum(1 for f in result.findings if f.status == "PASS"),
         "errors": len(result.errors),
+    }
+
+
+def _build_single_target_aggregate(result) -> dict:
+    return {
+        "profiles": [_summarize_scan_result(result)],
+        "totals": {
+            "profiles": 1,
+            "findings": len(result.findings),
+            "fail": sum(1 for f in result.findings if f.status == "FAIL"),
+            "pass": sum(1 for f in result.findings if f.status == "PASS"),
+            "errors": len(result.errors),
+        },
     }
 
 
@@ -277,6 +291,75 @@ def notify_email_for_aggregate(
     )
 
 
+def _notify_from_args(args, aggregate: dict) -> None:
+    if getattr(args, "slack_webhook", None):
+        notify_slack_for_aggregate(aggregate, args.slack_webhook)
+    if getattr(args, "email_to", None):
+        if not (args.smtp_host and args.smtp_from):
+            raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
+        notify_email_for_aggregate(
+            aggregate=aggregate,
+            recipient=args.email_to,
+            smtp_host=args.smtp_host,
+            smtp_port=args.smtp_port,
+            sender=args.smtp_from,
+            smtp_user=args.smtp_user,
+            smtp_password=args.smtp_password,
+        )
+
+
+def run_schedule_local(args) -> int:
+    if args.every_minutes <= 0:
+        raise SystemExit("--every-minutes 값은 1 이상이어야 합니다.")
+    if args.runs <= 0:
+        raise SystemExit("--runs 값은 1 이상이어야 합니다.")
+
+    for idx in range(1, args.runs + 1):
+        print(
+            f"[Schedule] Run {idx}/{args.runs} started at "
+            f"{datetime.now(timezone.utc).isoformat()}"
+        )
+        try:
+            if args.mode == "scan":
+                result = run_scan(
+                    profile_name=args.profile,
+                    region_name=args.region,
+                    role_arn=args.role_arn,
+                    external_id=args.external_id,
+                )
+                aggregate = _build_single_target_aggregate(result)
+                _notify_from_args(args, aggregate)
+            elif args.mode == "scan-multi":
+                profiles = parse_profiles_arg(profiles=args.profiles, profiles_file=args.profiles_file)
+                if not profiles:
+                    raise SystemExit("No profiles provided. Use --profiles or --profiles-file.")
+                aggregate = run_multi_scan(profiles=profiles, region_name=args.region)
+                print_multi_scan_summary(aggregate)
+                if not args.no_save:
+                    output_file = save_multi_scan_summary(aggregate)
+                    print(f"[REPORT] Multi summary saved: {output_file}")
+                _notify_from_args(args, aggregate)
+            else:
+                targets = parse_assume_role_targets_file(args.targets_file)
+                if not targets:
+                    raise SystemExit("No targets found in file.")
+                aggregate = run_assume_role_multi_scan(targets=targets, region_name=args.region)
+                print_multi_scan_summary(aggregate)
+                if not args.no_save:
+                    output_file = save_multi_scan_summary(aggregate)
+                    print(f"[REPORT] Multi summary saved: {output_file}")
+                _notify_from_args(args, aggregate)
+        except Exception as exc:
+            print(f"[Schedule] Run {idx} failed: {exc}")
+
+        if idx < args.runs:
+            sleep_seconds = args.every_minutes * 60
+            print(f"[Schedule] next run in {args.every_minutes} minute(s)")
+            time.sleep(sleep_seconds)
+
+    return 0
+
+
 def print_plan(mode: str = "today") -> None:
     if mode == "weekly":
         print(WEEKLY_ROADMAP)
@@ -377,6 +460,31 @@ def main() -> int:
     assume_multi_parser.add_argument("--smtp-user", default=None, help="SMTP username")
     assume_multi_parser.add_argument("--smtp-password", default=None, help="SMTP password")
 
+    schedule_parser = sub.add_parser("schedule-local", help="Run scan job repeatedly in local scheduler loop")
+    schedule_parser.add_argument(
+        "--mode",
+        choices=["scan", "scan-multi", "scan-assume-role-multi"],
+        default="scan",
+        help="Scan mode to execute in schedule",
+    )
+    schedule_parser.add_argument("--every-minutes", default=60, type=int, help="Interval minutes between runs")
+    schedule_parser.add_argument("--runs", default=3, type=int, help="Total number of runs")
+    schedule_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
+    schedule_parser.add_argument("--profile", default="default", help="AWS profile name (scan mode)")
+    schedule_parser.add_argument("--role-arn", default=None, help="AssumeRole target ARN (scan mode)")
+    schedule_parser.add_argument("--external-id", default=None, help="AssumeRole external id (scan mode)")
+    schedule_parser.add_argument("--profiles", required=False, help="Comma-separated profiles (scan-multi mode)")
+    schedule_parser.add_argument("--profiles-file", required=False, help="Profiles text file (scan-multi mode)")
+    schedule_parser.add_argument("--targets-file", default=None, help="Targets file (scan-assume-role-multi mode)")
+    schedule_parser.add_argument("--no-save", action="store_true", help="Do not write multi summary report file")
+    schedule_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+    schedule_parser.add_argument("--email-to", default=None, help="Email recipient for summary notification")
+    schedule_parser.add_argument("--smtp-host", default=None, help="SMTP host")
+    schedule_parser.add_argument("--smtp-port", default=587, type=int, help="SMTP port")
+    schedule_parser.add_argument("--smtp-from", default=None, help="SMTP sender email")
+    schedule_parser.add_argument("--smtp-user", default=None, help="SMTP username")
+    schedule_parser.add_argument("--smtp-password", default=None, help="SMTP password")
+
     history_parser = sub.add_parser("history", help="Show recent scan history")
     history_parser.add_argument("--limit", default=20, type=int, help="Number of recent scan files to summarize")
 
@@ -394,30 +502,8 @@ def main() -> int:
             role_arn=getattr(args, "role_arn", None),
             external_id=getattr(args, "external_id", None),
         )
-        if getattr(args, "slack_webhook", None):
-            aggregate = {
-                "profiles": [_summarize_scan_result(result)],
-                "totals": {
-                    "profiles": 1,
-                    "findings": len(result.findings),
-                    "fail": sum(1 for f in result.findings if f.status == "FAIL"),
-                    "pass": sum(1 for f in result.findings if f.status == "PASS"),
-                    "errors": len(result.errors),
-                },
-            }
-            notify_slack_for_aggregate(aggregate, args.slack_webhook)
-        if getattr(args, "email_to", None):
-            if not (args.smtp_host and args.smtp_from):
-                raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
-            notify_email_for_aggregate(
-                aggregate=aggregate,
-                recipient=args.email_to,
-                smtp_host=args.smtp_host,
-                smtp_port=args.smtp_port,
-                sender=args.smtp_from,
-                smtp_user=args.smtp_user,
-                smtp_password=args.smtp_password,
-            )
+        aggregate = _build_single_target_aggregate(result)
+        _notify_from_args(args, aggregate)
         return 0
 
     if args.command == "scan-multi":
@@ -429,20 +515,7 @@ def main() -> int:
         if not args.no_save:
             output_file = save_multi_scan_summary(aggregate)
             print(f"[REPORT] Multi summary saved: {output_file}")
-        if args.slack_webhook:
-            notify_slack_for_aggregate(aggregate, args.slack_webhook)
-        if args.email_to:
-            if not (args.smtp_host and args.smtp_from):
-                raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
-            notify_email_for_aggregate(
-                aggregate=aggregate,
-                recipient=args.email_to,
-                smtp_host=args.smtp_host,
-                smtp_port=args.smtp_port,
-                sender=args.smtp_from,
-                smtp_user=args.smtp_user,
-                smtp_password=args.smtp_password,
-            )
+        _notify_from_args(args, aggregate)
         return 0
 
     if args.command == "scan-assume-role-multi":
@@ -454,21 +527,13 @@ def main() -> int:
         if not args.no_save:
             output_file = save_multi_scan_summary(aggregate)
             print(f"[REPORT] Multi summary saved: {output_file}")
-        if args.slack_webhook:
-            notify_slack_for_aggregate(aggregate, args.slack_webhook)
-        if args.email_to:
-            if not (args.smtp_host and args.smtp_from):
-                raise SystemExit("--email-to 사용 시 --smtp-host, --smtp-from 이 필요합니다.")
-            notify_email_for_aggregate(
-                aggregate=aggregate,
-                recipient=args.email_to,
-                smtp_host=args.smtp_host,
-                smtp_port=args.smtp_port,
-                sender=args.smtp_from,
-                smtp_user=args.smtp_user,
-                smtp_password=args.smtp_password,
-            )
+        _notify_from_args(args, aggregate)
         return 0
+
+    if args.command == "schedule-local":
+        if args.mode == "scan-assume-role-multi" and not args.targets_file:
+            raise SystemExit("--mode scan-assume-role-multi 사용 시 --targets-file 이 필요합니다.")
+        return run_schedule_local(args)
 
     if args.command == "plan":
         print_plan(mode=args.mode)

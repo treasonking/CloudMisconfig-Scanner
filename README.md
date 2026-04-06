@@ -59,6 +59,14 @@ AssumeRole 멀티 계정 스캔:
 ```bash
 python app/main.py scan-assume-role-multi --targets-file targets.txt --region ap-northeast-2
 ```
+로컬 스케줄링 반복 실행:
+```bash
+python app/main.py schedule-local --mode scan --profile default --every-minutes 60 --runs 3
+```
+멀티 프로필 스케줄링:
+```bash
+python app/main.py schedule-local --mode scan-multi --profiles default,prod --every-minutes 30 --runs 4
+```
 Slack 알림 예시:
 ```bash
 python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
@@ -151,10 +159,11 @@ cloudmisconfig-scanner/
 
 ## 한계 및 향후 개선
 - 현재는 단일 계정/리전 중심 MVP
-- 멀티 계정 AssumeRole 스캔 확장 예정
+- 멀티 계정 AssumeRole 스캔 확장 완료
+- 알림(Slack/Email) + 로컬 스케줄링 완료
 - 규칙 수 확대 및 서비스별 권한 부족 상황에 대한 부분 실패 세분화 예정
-- 알림(Slack/Email) 및 배치 스케줄링(CloudWatch/EventBridge) 연동 예정
+- 클라우드 네이티브 스케줄링(CloudWatch/EventBridge) 연동 예정
 
 ## 진행 단계 요약
-- 완료: 1~20단계 (MVP) + 운영 안정화 확장 + 멀티 계정(AssumeRole) 고도화
-- 현재 완성도: 100% (MVP + 고도화 1차)
+- 완료: 1~20단계 (MVP) + 운영 안정화 확장 + 멀티 계정(AssumeRole) + 알림/스케줄링 고도화
+- 현재 완성도: 100% (MVP + 고도화 계획 반영)
