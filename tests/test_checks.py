@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from scanner.checks.aws_checks import IAMWildcardPolicyCheck, S3EncryptionCheck, SecurityGroupExposureCheck
+from scanner.checks.aws import (
+    IAMRoleTrustPolicyCheck,
+    IAMRoleWildcardPolicyCheck,
+    IAMWildcardPolicyCheck,
+    S3EncryptionCheck,
+    SecurityGroupExposureCheck,
+)
 from scanner.core.models import ScanContext, ScanResult
 
 
@@ -80,3 +86,42 @@ def test_security_group_exposure_check_detects_public_ssh():
     assert findings[0].status == "PASS"
     assert findings[1].status == "FAIL"
     assert "ssh" in findings[1].message.lower()
+
+
+def test_iam_role_trust_policy_check_flags_open_trust():
+    result = _base_result(
+        {
+            "iam_role_trust_risk": [
+                {"role_name": "safe-role", "open_trust": False, "evidence": {}},
+                {"role_name": "risk-role", "open_trust": True, "evidence": {"Statement": [{"Principal": "*"}]}},
+            ]
+        }
+    )
+
+    findings = IAMRoleTrustPolicyCheck().evaluate(result)
+
+    assert len(findings) == 2
+    assert findings[0].status == "PASS"
+    assert findings[1].status == "FAIL"
+    assert findings[1].severity == "HIGH"
+
+
+def test_iam_role_wildcard_policy_check_flags_risky_role():
+    result = _base_result(
+        {
+            "iam_role_policy_risk": [
+                {"role_name": "safe-role", "wildcard_admin_policies": []},
+                {
+                    "role_name": "risk-role",
+                    "wildcard_admin_policies": [{"policy_name": "admin-star", "source": "managed"}],
+                },
+            ]
+        }
+    )
+
+    findings = IAMRoleWildcardPolicyCheck().evaluate(result)
+
+    assert len(findings) == 2
+    assert findings[0].status == "PASS"
+    assert findings[1].status == "FAIL"
+    assert "admin-star" in findings[1].message

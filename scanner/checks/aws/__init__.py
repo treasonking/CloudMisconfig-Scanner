@@ -1,14 +1,11 @@
-"""Security checks package."""
-
-from scanner.checks.aws import (
+from .ec2_checks import SecurityGroupExposureCheck
+from .iam_checks import (
     IAMRoleTrustPolicyCheck,
     IAMRoleWildcardPolicyCheck,
     IAMUserMfaCheck,
     IAMWildcardPolicyCheck,
-    S3EncryptionCheck,
-    S3PublicExposureCheck,
-    SecurityGroupExposureCheck,
 )
+from .s3_checks import S3EncryptionCheck, S3PublicExposureCheck
 
 __all__ = [
     "S3PublicExposureCheck",

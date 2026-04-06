@@ -46,6 +46,18 @@ def test_scan_endpoint_returns_summary_and_service_status(monkeypatch):
     assert payload["service_status"]["s3"]["status"] == "SUCCESS"
 
 
+def test_home_and_health_endpoints():
+    client = TestClient(app)
+
+    home = client.get("/")
+    health = client.get("/health")
+
+    assert home.status_code == 200
+    assert "/scan" in home.json()["endpoints"]
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+
+
 def test_scan_assume_role_endpoint(monkeypatch):
     monkeypatch.setattr(
         "app.web.run_scan",
@@ -58,6 +70,28 @@ def test_scan_assume_role_endpoint(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["summary"]["total"] == 2
+
+
+def test_scan_assume_role_passes_source_profile_and_external_id(monkeypatch):
+    captured = {}
+
+    def _fake_run_scan(profile_name, region_name, reporters, role_arn, external_id):
+        captured["profile_name"] = profile_name
+        captured["region_name"] = region_name
+        captured["role_arn"] = role_arn
+        captured["external_id"] = external_id
+        return _fake_result()
+
+    monkeypatch.setattr("app.web.run_scan", _fake_run_scan)
+    client = TestClient(app)
+
+    response = client.get(
+        "/scan-assume-role?role_arn=arn:aws:iam::111111111111:role/SecurityAudit&source_profile=prod&external_id=ext-1"
+    )
+
+    assert response.status_code == 200
+    assert captured["profile_name"] == "prod"
+    assert captured["external_id"] == "ext-1"
 
 
 def test_results_endpoint_has_cursor():
@@ -141,6 +175,16 @@ def test_export_history_csv(monkeypatch):
     assert "filename,started_at,total,fail,pass,errors" in response.text
 
 
+def test_export_history_csv_has_attachment_header(monkeypatch):
+    monkeypatch.setattr("app.web.load_scan_history", lambda limit=20: [])
+    client = TestClient(app)
+
+    response = client.get("/export/history.csv")
+
+    assert response.status_code == 200
+    assert "attachment; filename=\"scan-history.csv\"" == response.headers.get("content-disposition")
+
+
 def test_export_findings_csv(tmp_path, monkeypatch):
     report_file = tmp_path / "scan-1.json"
     report_file.write_text(
@@ -158,3 +202,20 @@ def test_export_findings_csv(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert "check_id,status,severity,resource,message,recommendation" in response.text
     assert "A,FAIL,HIGH,r,m,x" in response.text
+
+
+def test_export_findings_csv_returns_404_without_json(monkeypatch):
+    monkeypatch.setattr("app.web._report_list", lambda limit=50, cursor=0: ([], None))
+    client = TestClient(app)
+
+    response = client.get("/export/findings.csv")
+
+    assert response.status_code == 404
+
+
+def test_report_file_rejects_path_traversal():
+    client = TestClient(app)
+
+    response = client.get("/report/..%5Csecrets.txt")
+
+    assert response.status_code == 400

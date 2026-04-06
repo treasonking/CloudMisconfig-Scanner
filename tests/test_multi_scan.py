@@ -1,7 +1,13 @@
 import json
 from datetime import datetime, timezone
 
-from app.main import parse_assume_role_targets_file, parse_profiles_arg, run_multi_scan, save_multi_scan_summary
+from app.main import (
+    parse_assume_role_targets_file,
+    parse_profiles_arg,
+    run_assume_role_multi_scan,
+    run_multi_scan,
+    save_multi_scan_summary,
+)
 from scanner.core.models import ScanContext, ScanResult, Finding
 
 
@@ -90,3 +96,37 @@ def test_parse_assume_role_targets_file(tmp_path):
     assert len(targets) == 2
     assert targets[0]["source_profile"] == "default"
     assert targets[1]["external_id"] == "my-external"
+
+
+def test_run_assume_role_multi_scan_aggregates_targets(monkeypatch):
+    responses = {
+        "arn:aws:iam::111111111111:role/SecurityAudit": _result("default", fail_count=1, pass_count=1, error_count=0),
+        "arn:aws:iam::222222222222:role/SecurityAudit": _result("prod", fail_count=2, pass_count=0, error_count=1),
+    }
+
+    def _fake_run_scan(profile_name, region_name, role_arn=None, external_id=None):
+        return responses[role_arn]
+
+    monkeypatch.setattr("app.main.run_scan", _fake_run_scan)
+
+    aggregate = run_assume_role_multi_scan(
+        targets=[
+            {"role_arn": "arn:aws:iam::111111111111:role/SecurityAudit", "source_profile": "default"},
+            {"role_arn": "arn:aws:iam::222222222222:role/SecurityAudit", "source_profile": "prod"},
+        ],
+        region_name="ap-northeast-2",
+    )
+
+    assert aggregate["totals"]["profiles"] == 2
+    assert aggregate["totals"]["fail"] == 3
+    assert aggregate["totals"]["pass"] == 1
+    assert aggregate["totals"]["errors"] == 1
+
+
+def test_parse_assume_role_targets_file_missing_raises(tmp_path):
+    missing = tmp_path / "missing-targets.txt"
+    try:
+        parse_assume_role_targets_file(str(missing))
+    except FileNotFoundError:
+        return
+    raise AssertionError("Expected FileNotFoundError for missing targets file")

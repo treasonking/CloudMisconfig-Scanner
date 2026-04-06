@@ -1,6 +1,6 @@
 # CloudMisconfig-Scanner
 
-AWS 환경에서 자주 발생하는 보안 오구성을 자동으로 탐지하는 경량 진단 도구입니다.
+AWS 환경에서 자주 발생하는 보안 오구성을 자동으로 탐지하고, 결과를 리포트로 정리하는 프로젝트입니다.
 
 ## 프로젝트 소개
 - 문제 정의: 클라우드 운영 중 빈번한 설정 실수(S3 공개, IAM 과권한, SG 노출)를 자동 탐지
@@ -22,6 +22,8 @@ AWS 환경에서 자주 발생하는 보안 오구성을 자동으로 탐지하�
   - HTML 저장 (`reports/scan-YYYYMMDD-HHMMSS.html`)
 
 ## 아키텍처
+![Architecture](docs/images/architecture-flow.svg)
+
 ```mermaid
 flowchart LR
   A["CLI / API Trigger"] --> B["AWSProvider"]
@@ -34,6 +36,19 @@ flowchart LR
   G --> I["reports/*.json"]
   H --> J["reports/*.html"]
 ```
+
+## 실제 시나리오
+1. 운영 계정에서 EventBridge 스케줄이 하루 1회 스캔 실행 트리거를 보냅니다.
+2. Lambda/Step Functions가 `scan` 또는 `scan-assume-role-multi`를 실행합니다.
+3. S3/IAM/Security Group 체크가 FAIL/PASS, severity, evidence, recommendation을 생성합니다.
+4. 결과는 `reports/`의 JSON/HTML로 남고 필요 시 Slack/Email 알림을 보냅니다.
+
+![Demo Scenario](docs/images/demo-scenario.svg)
+
+## 스크린샷
+- HTML 리포트 예시: `reports/scan-*.html`
+- 대시보드 예시: `http://localhost:8000/dashboard`
+- Trend/CSV 예시: `/trend`, `/export/history.csv`, `/export/findings.csv`
 
 ## CLI 실행
 
@@ -160,12 +175,13 @@ cloudmisconfig-scanner/
 ├─ scanner/
 │  ├─ core/
 │  ├─ providers/aws/
-│  ├─ checks/
+│  ├─ checks/aws/
 │  └─ reporting/
 ├─ docs/
 │  ├─ interview-notes.md
 │  ├─ pr-summary.md
-│  └─ progress-status.md
+│  ├─ progress-status.md
+│  └─ images/
 ├─ infra/
 │  └─ eventbridge-lambda-schedule.yaml
 │  └─ eventbridge-sfn-schedule.yaml
@@ -196,4 +212,4 @@ cloudmisconfig-scanner/
 
 ## 진행 단계 요약
 - 완료: 1~20단계 (MVP) + 운영 안정화 확장 + 멀티 계정(AssumeRole) + 알림/스케줄링 고도화
-- 현재 완성도: 100% (MVP + 고도화 계획 반영)
+- 현재 상태: MVP 범위는 안정적으로 동작하며, 운영 고도화 항목은 단계적으로 확장 중

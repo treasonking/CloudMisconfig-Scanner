@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="300" viewBox="0 0 980 300">
+  <rect width="980" height="300" fill="#f8fafc"/>
+  <style>
+    .card { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; ry: 10; }
+    .title { font-family: Segoe UI, Arial, sans-serif; fill: #0f172a; font-size: 17px; font-weight: 600; }
+    .txt { font-family: Segoe UI, Arial, sans-serif; fill: #334155; font-size: 13px; }
+    .arrow { stroke: #0ea5e9; stroke-width: 3; marker-end: url(#arr); }
+  </style>
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0ea5e9"/>
+    </marker>
+  </defs>
+
+  <text class="title" x="30" y="36">Demo Scenario: Daily Multi-Account Scan</text>
+
+  <rect class="card" x="30" y="60" width="210" height="170"/>
+  <text class="title" x="55" y="95">1) Schedule</text>
+  <text class="txt" x="45" y="122">EventBridge runs at</text>
+  <text class="txt" x="45" y="142">`rate(1 day)`</text>
+
+  <rect class="card" x="280" y="60" width="210" height="170"/>
+  <text class="title" x="305" y="95">2) Execution</text>
+  <text class="txt" x="295" y="122">Step Functions / Lambda</text>
+  <text class="txt" x="295" y="142">calls `scan-assume-role`</text>
+
+  <rect class="card" x="530" y="60" width="210" height="170"/>
+  <text class="title" x="560" y="95">3) Analysis</text>
+  <text class="txt" x="545" y="122">S3 / IAM / SG checks</text>
+  <text class="txt" x="545" y="142">severity + evidence</text>
+
+  <rect class="card" x="780" y="60" width="170" height="170"/>
+  <text class="title" x="805" y="95">4) Output</text>
+  <text class="txt" x="795" y="122">JSON/HTML reports</text>
+  <text class="txt" x="795" y="142">Slack/Email notify</text>
+
+  <line class="arrow" x1="240" y1="145" x2="280" y2="145"/>
+  <line class="arrow" x1="490" y1="145" x2="530" y2="145"/>
+  <line class="arrow" x1="740" y1="145" x2="780" y2="145"/>
+</svg>
