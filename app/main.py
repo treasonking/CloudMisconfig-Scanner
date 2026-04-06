@@ -92,6 +92,50 @@ def test_aws_connection(profile_name: str | None = "default", region_name: str =
     return run_scan(profile_name=profile_name, region_name=region_name)
 
 
+def _summarize_scan_result(result) -> dict:
+    return {
+        "profile": result.context.profile or "default",
+        "total": len(result.findings),
+        "fail": sum(1 for f in result.findings if f.status == "FAIL"),
+        "pass": sum(1 for f in result.findings if f.status == "PASS"),
+        "errors": len(result.errors),
+    }
+
+
+def run_multi_scan(profiles: list[str], region_name: str = "ap-northeast-2") -> dict:
+    summaries: list[dict] = []
+    for profile in profiles:
+        result = run_scan(profile_name=profile, region_name=region_name)
+        summaries.append(_summarize_scan_result(result))
+
+    total_profiles = len(summaries)
+    aggregate = {
+        "profiles": summaries,
+        "totals": {
+            "profiles": total_profiles,
+            "findings": sum(item["total"] for item in summaries),
+            "fail": sum(item["fail"] for item in summaries),
+            "pass": sum(item["pass"] for item in summaries),
+            "errors": sum(item["errors"] for item in summaries),
+        },
+    }
+    return aggregate
+
+
+def print_multi_scan_summary(aggregate: dict) -> None:
+    print("[Multi Profile Scan Summary]")
+    for item in aggregate["profiles"]:
+        print(
+            f"- {item['profile']}: total={item['total']}, fail={item['fail']}, "
+            f"pass={item['pass']}, errors={item['errors']}"
+        )
+    totals = aggregate["totals"]
+    print(
+        f"[Totals] profiles={totals['profiles']}, findings={totals['findings']}, "
+        f"fail={totals['fail']}, pass={totals['pass']}, errors={totals['errors']}"
+    )
+
+
 def print_plan(mode: str = "today") -> None:
     if mode == "weekly":
         print(WEEKLY_ROADMAP)
@@ -106,6 +150,13 @@ def main() -> int:
     scan_parser = sub.add_parser("scan", help="Run AWS scan")
     scan_parser.add_argument("--profile", default="default", help="AWS profile name")
     scan_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
+    scan_multi_parser = sub.add_parser("scan-multi", help="Run AWS scan for multiple profiles")
+    scan_multi_parser.add_argument(
+        "--profiles",
+        required=True,
+        help="Comma-separated profile names (e.g., default,prod,dev)",
+    )
+    scan_multi_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
     plan_parser = sub.add_parser("plan", help="Print execution plan/checklist")
     plan_parser.add_argument("--mode", default="today", choices=["today", "weekly"], help="Plan mode")
 
@@ -115,6 +166,11 @@ def main() -> int:
         profile = getattr(args, "profile", "default")
         region = getattr(args, "region", "ap-northeast-2")
         run_scan(profile_name=profile, region_name=region)
+        return 0
+    if args.command == "scan-multi":
+        profiles = [p.strip() for p in args.profiles.split(",") if p.strip()]
+        aggregate = run_multi_scan(profiles=profiles, region_name=args.region)
+        print_multi_scan_summary(aggregate)
         return 0
     if args.command == "plan":
         print_plan(mode=args.mode)

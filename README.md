@@ -47,6 +47,11 @@ python -m pip install -r requirements.txt
 python app/main.py scan --profile default --region ap-northeast-2
 ```
 
+멀티 프로필 스캔:
+```bash
+python app/main.py scan-multi --profiles default,prod,dev --region ap-northeast-2
+```
+
 또는 기본값으로 실행:
 ```bash
 python app/main.py
