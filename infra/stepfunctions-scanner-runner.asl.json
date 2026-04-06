@@ -1,0 +1,32 @@
+{
+  "Comment": "CloudMisconfig scheduled scanner workflow example",
+  "StartAt": "RunScannerLambda",
+  "States": {
+    "RunScannerLambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ScannerLambdaArn}",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "States.Timeout"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": "$.scan_result",
+      "Next": "Succeeded"
+    },
+    "Succeeded": {
+      "Type": "Succeed"
+    }
+  }
+}
