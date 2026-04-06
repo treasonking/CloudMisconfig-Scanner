@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 
-from app.main import parse_profiles_arg, run_multi_scan, save_multi_scan_summary
+from app.main import parse_assume_role_targets_file, parse_profiles_arg, run_multi_scan, save_multi_scan_summary
 from scanner.core.models import ScanContext, ScanResult, Finding
 
 
@@ -74,3 +74,19 @@ def test_parse_profiles_arg_supports_file_and_comments(tmp_path):
     parsed = parse_profiles_arg(profiles="dev,prod", profiles_file=str(profiles_file))
 
     assert parsed == ["dev", "prod", "default"]
+
+
+def test_parse_assume_role_targets_file(tmp_path):
+    targets_file = tmp_path / "targets.txt"
+    targets_file.write_text(
+        "# role_arn,profile,external_id\n"
+        "arn:aws:iam::111111111111:role/SecurityAudit,default,\n"
+        "arn:aws:iam::222222222222:role/SecurityAudit,prod,my-external\n",
+        encoding="utf-8",
+    )
+
+    targets = parse_assume_role_targets_file(str(targets_file))
+
+    assert len(targets) == 2
+    assert targets[0]["source_profile"] == "default"
+    assert targets[1]["external_id"] == "my-external"

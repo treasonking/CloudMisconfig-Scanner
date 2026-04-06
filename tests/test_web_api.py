@@ -46,6 +46,20 @@ def test_scan_endpoint_returns_summary_and_service_status(monkeypatch):
     assert payload["service_status"]["s3"]["status"] == "SUCCESS"
 
 
+def test_scan_assume_role_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        "app.web.run_scan",
+        lambda profile_name, region_name, reporters, role_arn, external_id: _fake_result(),
+    )
+    client = TestClient(app)
+
+    response = client.get("/scan-assume-role?role_arn=arn:aws:iam::111111111111:role/SecurityAudit")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["total"] == 2
+
+
 def test_results_endpoint_has_cursor():
     client = TestClient(app)
 
@@ -73,6 +87,14 @@ def test_scan_multi_endpoint_returns_aggregate(monkeypatch):
     payload = response.json()
     assert payload["totals"]["profiles"] == 2
     assert len(payload["profiles"]) == 2
+
+
+def test_scan_multi_endpoint_rejects_empty_profiles():
+    client = TestClient(app)
+
+    response = client.get("/scan-multi?profiles=,,,")
+
+    assert response.status_code == 400
 
 
 def test_results_endpoint_rejects_invalid_cursor():

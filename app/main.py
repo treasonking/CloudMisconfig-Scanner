@@ -9,6 +9,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scanner.checks.aws_checks import (
+    IAMRoleTrustPolicyCheck,
+    IAMRoleWildcardPolicyCheck,
     IAMUserMfaCheck,
     IAMWildcardPolicyCheck,
     S3EncryptionCheck,
@@ -17,6 +19,7 @@ from scanner.checks.aws_checks import (
 )
 from scanner.core.interfaces import Reporter
 from scanner.core.scanner import MisconfigScanner
+from scanner.notifications.slack import send_slack_message
 from scanner.providers.aws.provider import AWSProvider
 from scanner.reporting.console import ConsoleReporter
 from scanner.reporting.html_reporter import HtmlReporter
@@ -66,8 +69,15 @@ def build_scanner(
     profile_name: str | None = "default",
     region_name: str = "ap-northeast-2",
     reporters: list[Reporter] | None = None,
+    role_arn: str | None = None,
+    external_id: str | None = None,
 ) -> MisconfigScanner:
-    provider = AWSProvider(region_name=region_name, profile_name=profile_name)
+    provider = AWSProvider(
+        region_name=region_name,
+        profile_name=profile_name,
+        role_arn=role_arn,
+        external_id=external_id,
+    )
     return MisconfigScanner(
         provider=provider,
         reporters=reporters if reporters is not None else default_reporters(),
@@ -76,6 +86,8 @@ def build_scanner(
             S3EncryptionCheck(),
             IAMUserMfaCheck(),
             IAMWildcardPolicyCheck(),
+            IAMRoleTrustPolicyCheck(),
+            IAMRoleWildcardPolicyCheck(),
             SecurityGroupExposureCheck(),
         ],
     )
@@ -85,8 +97,16 @@ def run_scan(
     profile_name: str | None = "default",
     region_name: str = "ap-northeast-2",
     reporters: list[Reporter] | None = None,
+    role_arn: str | None = None,
+    external_id: str | None = None,
 ):
-    scanner = build_scanner(profile_name=profile_name, region_name=region_name, reporters=reporters)
+    scanner = build_scanner(
+        profile_name=profile_name,
+        region_name=region_name,
+        reporters=reporters,
+        role_arn=role_arn,
+        external_id=external_id,
+    )
     return scanner.run()
 
 
@@ -94,9 +114,11 @@ def test_aws_connection(profile_name: str | None = "default", region_name: str =
     return run_scan(profile_name=profile_name, region_name=region_name)
 
 
-def _summarize_scan_result(result) -> dict:
+def _summarize_scan_result(result, target: str | None = None) -> dict:
     return {
+        "target": target or result.context.profile or "default",
         "profile": result.context.profile or "default",
+        "account": result.data.get("identity", {}).get("account", "-"),
         "total": len(result.findings),
         "fail": sum(1 for f in result.findings if f.status == "FAIL"),
         "pass": sum(1 for f in result.findings if f.status == "PASS"),
@@ -108,10 +130,11 @@ def run_multi_scan(profiles: list[str], region_name: str = "ap-northeast-2") -> 
     summaries: list[dict] = []
     for profile in profiles:
         result = run_scan(profile_name=profile, region_name=region_name)
-        summaries.append(_summarize_scan_result(result))
+        summaries.append(_summarize_scan_result(result, target=profile))
 
     total_profiles = len(summaries)
     aggregate = {
+        "mode": "profiles",
         "profiles": summaries,
         "totals": {
             "profiles": total_profiles,
@@ -139,6 +162,57 @@ def parse_profiles_arg(profiles: str | None = None, profiles_file: str | None = 
     return unique
 
 
+def parse_assume_role_targets_file(targets_file: str) -> list[dict]:
+    path = Path(targets_file)
+    if not path.exists():
+        raise FileNotFoundError(f"Targets file not found: {targets_file}")
+
+    targets: list[dict] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        parts = [p.strip() for p in line.split(",")]
+        role_arn = parts[0]
+        source_profile = parts[1] if len(parts) >= 2 and parts[1] else "default"
+        external_id = parts[2] if len(parts) >= 3 and parts[2] else None
+
+        targets.append({"role_arn": role_arn, "source_profile": source_profile, "external_id": external_id})
+
+    return targets
+
+
+def run_assume_role_multi_scan(targets: list[dict], region_name: str = "ap-northeast-2") -> dict:
+    summaries: list[dict] = []
+
+    for target in targets:
+        role_arn = target["role_arn"]
+        source_profile = target.get("source_profile") or "default"
+        external_id = target.get("external_id")
+
+        result = run_scan(
+            profile_name=source_profile,
+            region_name=region_name,
+            role_arn=role_arn,
+            external_id=external_id,
+        )
+        summaries.append(_summarize_scan_result(result, target=role_arn))
+
+    aggregate = {
+        "mode": "assume-role-targets",
+        "profiles": summaries,
+        "totals": {
+            "profiles": len(summaries),
+            "findings": sum(item["total"] for item in summaries),
+            "fail": sum(item["fail"] for item in summaries),
+            "pass": sum(item["pass"] for item in summaries),
+            "errors": sum(item["errors"] for item in summaries),
+        },
+    }
+    return aggregate
+
+
 def save_multi_scan_summary(aggregate: dict) -> Path:
     reports_dir = ROOT / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -149,17 +223,27 @@ def save_multi_scan_summary(aggregate: dict) -> Path:
 
 
 def print_multi_scan_summary(aggregate: dict) -> None:
-    print("[Multi Profile Scan Summary]")
+    print("[Multi Scan Summary]")
     for item in aggregate["profiles"]:
         print(
-            f"- {item['profile']}: total={item['total']}, fail={item['fail']}, "
-            f"pass={item['pass']}, errors={item['errors']}"
+            f"- {item['target']}: account={item['account']}, total={item['total']}, "
+            f"fail={item['fail']}, pass={item['pass']}, errors={item['errors']}"
         )
     totals = aggregate["totals"]
     print(
-        f"[Totals] profiles={totals['profiles']}, findings={totals['findings']}, "
+        f"[Totals] targets={totals['profiles']}, findings={totals['findings']}, "
         f"fail={totals['fail']}, pass={totals['pass']}, errors={totals['errors']}"
     )
+
+
+def notify_slack_for_aggregate(aggregate: dict, webhook_url: str) -> None:
+    totals = aggregate["totals"]
+    text = (
+        "CloudMisconfig Scan Summary\\n"
+        f"targets={totals['profiles']}, findings={totals['findings']}, "
+        f"fail={totals['fail']}, pass={totals['pass']}, errors={totals['errors']}"
+    )
+    send_slack_message(webhook_url, text)
 
 
 def print_plan(mode: str = "today") -> None:
@@ -176,6 +260,10 @@ def main() -> int:
     scan_parser = sub.add_parser("scan", help="Run AWS scan")
     scan_parser.add_argument("--profile", default="default", help="AWS profile name")
     scan_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
+    scan_parser.add_argument("--role-arn", default=None, help="AssumeRole target ARN")
+    scan_parser.add_argument("--external-id", default=None, help="AssumeRole external id")
+    scan_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+
     scan_multi_parser = sub.add_parser("scan-multi", help="Run AWS scan for multiple profiles")
     scan_multi_parser.add_argument(
         "--profiles",
@@ -193,6 +281,14 @@ def main() -> int:
         action="store_true",
         help="Do not write aggregated summary file under reports/",
     )
+    scan_multi_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+
+    assume_multi_parser = sub.add_parser("scan-assume-role-multi", help="Run multi-account scan via AssumeRole targets file")
+    assume_multi_parser.add_argument("--targets-file", required=True, help="Targets file: role_arn[,source_profile][,external_id]")
+    assume_multi_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
+    assume_multi_parser.add_argument("--no-save", action="store_true", help="Do not write aggregated summary file")
+    assume_multi_parser.add_argument("--slack-webhook", default=None, help="Slack webhook URL for summary notification")
+
     plan_parser = sub.add_parser("plan", help="Print execution plan/checklist")
     plan_parser.add_argument("--mode", default="today", choices=["today", "weekly"], help="Plan mode")
 
@@ -201,8 +297,26 @@ def main() -> int:
     if args.command in {"scan", None}:
         profile = getattr(args, "profile", "default")
         region = getattr(args, "region", "ap-northeast-2")
-        run_scan(profile_name=profile, region_name=region)
+        result = run_scan(
+            profile_name=profile,
+            region_name=region,
+            role_arn=getattr(args, "role_arn", None),
+            external_id=getattr(args, "external_id", None),
+        )
+        if getattr(args, "slack_webhook", None):
+            aggregate = {
+                "profiles": [_summarize_scan_result(result)],
+                "totals": {
+                    "profiles": 1,
+                    "findings": len(result.findings),
+                    "fail": sum(1 for f in result.findings if f.status == "FAIL"),
+                    "pass": sum(1 for f in result.findings if f.status == "PASS"),
+                    "errors": len(result.errors),
+                },
+            }
+            notify_slack_for_aggregate(aggregate, args.slack_webhook)
         return 0
+
     if args.command == "scan-multi":
         profiles = parse_profiles_arg(profiles=args.profiles, profiles_file=args.profiles_file)
         if not profiles:
@@ -212,7 +326,23 @@ def main() -> int:
         if not args.no_save:
             output_file = save_multi_scan_summary(aggregate)
             print(f"[REPORT] Multi summary saved: {output_file}")
+        if args.slack_webhook:
+            notify_slack_for_aggregate(aggregate, args.slack_webhook)
         return 0
+
+    if args.command == "scan-assume-role-multi":
+        targets = parse_assume_role_targets_file(args.targets_file)
+        if not targets:
+            raise SystemExit("No targets found in file.")
+        aggregate = run_assume_role_multi_scan(targets=targets, region_name=args.region)
+        print_multi_scan_summary(aggregate)
+        if not args.no_save:
+            output_file = save_multi_scan_summary(aggregate)
+            print(f"[REPORT] Multi summary saved: {output_file}")
+        if args.slack_webhook:
+            notify_slack_for_aggregate(aggregate, args.slack_webhook)
+        return 0
+
     if args.command == "plan":
         print_plan(mode=args.mode)
         return 0

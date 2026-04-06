@@ -36,6 +36,14 @@ class ConsoleReporter:
             lines.extend([f"- {name}" for name in users])
         lines.append("")
 
+        lines.append("=== IAM 역할 목록 ===")
+        roles = result.data.get("iam_roles", [])
+        if not roles:
+            lines.append("IAM 역할이 없습니다.")
+        else:
+            lines.extend([f"- {name}" for name in roles])
+        lines.append("")
+
         lines.append("=== Security Groups ===")
         groups = result.data.get("security_groups", [])
         if not groups:

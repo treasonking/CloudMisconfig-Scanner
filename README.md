@@ -55,6 +55,14 @@ python app/main.py scan-multi --profiles default,prod,dev --region ap-northeast-
 ```bash
 python app/main.py scan-multi --profiles-file profiles.txt --region ap-northeast-2
 ```
+AssumeRole 멀티 계정 스캔:
+```bash
+python app/main.py scan-assume-role-multi --targets-file targets.txt --region ap-northeast-2
+```
+Slack 알림 예시:
+```bash
+python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
+```
 
 또는 기본값으로 실행:
 ```bash
@@ -69,6 +77,7 @@ uvicorn app.web:app --reload --port 8000
 엔드포인트:
 - `GET /health`
 - `GET /scan?profile=default&region=ap-northeast-2`
+- `GET /scan-assume-role?role_arn=arn:aws:iam::111111111111:role/SecurityAudit&source_profile=default`
 - `GET /scan-multi?profiles=default,prod&region=ap-northeast-2`
 - `GET /results?limit=20&cursor=0`
 - `GET /report/{filename}`
@@ -94,6 +103,8 @@ python -m pytest -q
 - `AWS.S3.EncryptionEnabled`
 - `AWS.IAM.UserMFA`
 - `AWS.IAM.WildcardPolicy`
+- `AWS.IAM.RoleTrustPolicy`
+- `AWS.IAM.RoleWildcardPolicy`
 - `AWS.EC2.SG.PublicIngress`
 
 ## 프로젝트 구조
@@ -134,5 +145,5 @@ cloudmisconfig-scanner/
 - 알림(Slack/Email) 및 배치 스케줄링(CloudWatch/EventBridge) 연동 예정
 
 ## 진행 단계 요약
-- 완료: 1~20단계 (MVP) + 운영 안정화 확장
-- 현재 완성도: 100% (MVP + 안정화 확장)
+- 완료: 1~20단계 (MVP) + 운영 안정화 확장 + 멀티 계정(AssumeRole) 고도화
+- 현재 완성도: 100% (MVP + 고도화 1차)

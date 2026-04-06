@@ -60,7 +60,7 @@ def _report_list(limit: int = 20, cursor: int = 0) -> tuple[list[dict], str | No
 def home():
     return {
         "message": "CloudMisconfig Scanner API",
-        "endpoints": ["/scan", "/scan-multi", "/results", "/report/{filename}", "/dashboard"],
+        "endpoints": ["/scan", "/scan-assume-role", "/scan-multi", "/results", "/report/{filename}", "/dashboard"],
     }
 
 
@@ -83,6 +83,29 @@ def scan(profile: str = Query("default"), region: str = Query("ap-northeast-2"))
         "low_info": sum(1 for f in result.findings if f.severity in {"LOW", "INFO"}),
     }
     payload["service_status"] = result.data.get("service_status", {})
+    return payload
+
+
+@app.get("/scan-assume-role")
+def scan_assume_role(
+    role_arn: str = Query(..., description="AssumeRole target ARN"),
+    source_profile: str = Query("default"),
+    region: str = Query("ap-northeast-2"),
+    external_id: str | None = Query(None),
+):
+    result = run_scan(
+        profile_name=source_profile,
+        region_name=region,
+        reporters=_scan_reporters(),
+        role_arn=role_arn,
+        external_id=external_id,
+    )
+    payload = result.to_dict()
+    payload["summary"] = {
+        "total": len(result.findings),
+        "fail": sum(1 for f in result.findings if f.status == "FAIL"),
+        "pass": sum(1 for f in result.findings if f.status == "PASS"),
+    }
     return payload
 
 
