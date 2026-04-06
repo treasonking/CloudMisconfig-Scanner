@@ -4,7 +4,8 @@ from pathlib import Path
 import sys
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -17,6 +18,10 @@ from scanner.reporting.json_reporter import JsonReporter
 
 REPORTS_DIR = ROOT / "reports"
 TEMPLATE_DIR = ROOT / "app" / "templates"
+TEMPLATES = Environment(
+    loader=FileSystemLoader(str(TEMPLATE_DIR)),
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
 app = FastAPI(title="CloudMisconfig Scanner API", version="0.1.0")
 
@@ -28,11 +33,30 @@ def _scan_reporters():
     ]
 
 
+def _report_list(limit: int = 20) -> list[dict]:
+    if not REPORTS_DIR.exists():
+        return []
+
+    files = sorted(REPORTS_DIR.glob("scan-*"), key=lambda p: p.stat().st_mtime, reverse=True)
+    items = []
+    for p in files[:limit]:
+        items.append(
+            {
+                "filename": p.name,
+                "path": str(p),
+                "size": p.stat().st_size,
+                "modified": p.stat().st_mtime,
+                "type": p.suffix.lstrip("."),
+            }
+        )
+    return items
+
+
 @app.get("/")
 def home():
     return {
         "message": "CloudMisconfig Scanner API",
-        "endpoints": ["/scan", "/results", "/report/{filename}"],
+        "endpoints": ["/scan", "/results", "/report/{filename}", "/dashboard"],
     }
 
 
@@ -55,22 +79,34 @@ def scan(profile: str = Query("default"), region: str = Query("ap-northeast-2"))
 
 @app.get("/results")
 def results(limit: int = Query(20, ge=1, le=100)):
-    if not REPORTS_DIR.exists():
-        return {"reports": []}
+    return {"reports": _report_list(limit=limit)}
 
-    files = sorted(REPORTS_DIR.glob("scan-*"), key=lambda p: p.stat().st_mtime, reverse=True)
-    items = []
-    for p in files[:limit]:
-        items.append(
-            {
-                "filename": p.name,
-                "path": str(p),
-                "size": p.stat().st_size,
-                "modified": p.stat().st_mtime,
-                "type": p.suffix.lstrip("."),
-            }
-        )
-    return {"reports": items}
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(profile: str = Query("default"), region: str = Query("ap-northeast-2")):
+    reports = _report_list(limit=20)
+
+    latest_json = next((r for r in reports if r["type"] == "json"), None)
+    summary = {"total": 0, "fail": 0, "pass": 0, "errors": 0}
+    if latest_json:
+        import json
+
+        payload = json.loads(Path(latest_json["path"]).read_text(encoding="utf-8"))
+        findings = payload.get("findings", [])
+        summary = {
+            "total": len(findings),
+            "fail": sum(1 for f in findings if f.get("status") == "FAIL"),
+            "pass": sum(1 for f in findings if f.get("status") == "PASS"),
+            "errors": len(payload.get("errors", [])),
+        }
+
+    html = TEMPLATES.get_template("dashboard.html.j2").render(
+        reports=reports,
+        summary=summary,
+        profile=profile,
+        region=region,
+    )
+    return HTMLResponse(content=html)
 
 
 @app.get("/report/{filename}")

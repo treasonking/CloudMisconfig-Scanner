@@ -2,6 +2,11 @@
 
 AWS 환경에서 자주 발생하는 보안 오구성을 자동으로 탐지하는 경량 진단 도구입니다.
 
+## 프로젝트 소개
+- 문제 정의: 클라우드 운영 중 빈번한 설정 실수(S3 공개, IAM 과권한, SG 노출)를 자동 탐지
+- 목표: 보안 오구성 탐지 결과를 위험도와 권고사항까지 포함해 보고서화
+- 대상: 단일 계정 MVP 기준의 빠른 진단 워크플로우
+
 ## 주요 기능 (MVP)
 - S3 버킷 보안 점검
   - 공개 노출(ACL/Policy/Public Access Block)
@@ -15,6 +20,20 @@ AWS 환경에서 자주 발생하는 보안 오구성을 자동으로 탐지하�
   - 콘솔 요약
   - JSON 저장 (`reports/scan-YYYYMMDD-HHMMSS.json`)
   - HTML 저장 (`reports/scan-YYYYMMDD-HHMMSS.html`)
+
+## 아키텍처
+```mermaid
+flowchart LR
+  A["CLI / API Trigger"] --> B["AWSProvider"]
+  B --> C["ScanResult(Data + Errors + ServiceStatus)"]
+  C --> D["Checks Engine"]
+  D --> E["Findings(PASS/FAIL, Severity, Recommendation)"]
+  E --> F["ConsoleReporter"]
+  E --> G["JsonReporter"]
+  E --> H["HtmlReporter"]
+  G --> I["reports/*.json"]
+  H --> J["reports/*.html"]
+```
 
 ## CLI 실행
 
@@ -42,6 +61,7 @@ uvicorn app.web:app --reload --port 8000
 - `GET /scan?profile=default&region=ap-northeast-2`
 - `GET /results`
 - `GET /report/{filename}`
+- `GET /dashboard`
 
 ## 테스트 실행
 ```bash
@@ -69,7 +89,8 @@ cloudmisconfig-scanner/
 │  ├─ main.py
 │  ├─ web.py
 │  └─ templates/
-│     └─ report.html.j2
+│     ├─ report.html.j2
+│     └─ dashboard.html.j2
 ├─ scanner/
 │  ├─ core/
 │  ├─ providers/aws/
@@ -77,14 +98,18 @@ cloudmisconfig-scanner/
 │  └─ reporting/
 ├─ reports/
 ├─ tests/
+├─ .github/workflows/ci.yml
 ├─ requirements.txt
 └─ README.md
 ```
 
-## 진행 현황
-- 완료: 1~13단계 핵심 범위
-  - 인증 연결, 공통 구조, S3/IAM/SG 점검, 위험도/권고사항, JSON/HTML, CLI, FastAPI 최소 API
-- 다음 권장 단계
-  - 서비스별 부분 실패 UI/응답 표준화 강화
-  - 시나리오 기반 테스트 코드 확장
-  - GitHub Actions CI + 린트/테스트 자동화
+## 데모 가이드
+- 1) `python app/main.py scan --profile default` 실행
+- 2) 생성된 HTML 리포트 열람: `reports/scan-*.html`
+- 3) API 대시보드 확인: `http://localhost:8000/dashboard`
+
+## 한계 및 향후 개선
+- 현재는 단일 계정/리전 중심 MVP
+- 멀티 계정 AssumeRole 스캔 확장 예정
+- 규칙 수 확대 및 서비스별 권한 부족 상황에 대한 부분 실패 세분화 예정
+- 알림(Slack/Email) 및 배치 스케줄링(CloudWatch/EventBridge) 연동 예정
