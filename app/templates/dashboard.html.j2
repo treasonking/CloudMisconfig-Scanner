@@ -14,17 +14,19 @@
       --ok: #0f7a33;
       --warn: #b91c1c;
       --btn: #0059b3;
+      --btn2: #334155;
     }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: "Segoe UI", "Noto Sans KR", sans-serif; }
     .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
     h1, h2 { margin: 0 0 12px; }
     .muted { color: var(--muted); }
-    .btn { display: inline-block; text-decoration: none; color: #fff; background: var(--btn); border-radius: 10px; padding: 8px 14px; }
+    .btn { display: inline-block; text-decoration: none; color: #fff; background: var(--btn); border-radius: 10px; padding: 8px 14px; margin-right: 8px; }
+    .btn-secondary { background: var(--btn2); }
     .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .metric { background: #f8fbff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
     th { background: #f6f9fd; }
     .status-fail { color: var(--warn); font-weight: 700; }
     .status-pass { color: var(--ok); font-weight: 700; }
@@ -37,6 +39,11 @@
       <h1>CloudMisconfig Dashboard</h1>
       <p class="muted">최근 스캔 결과와 리포트 파일을 빠르게 확인합니다.</p>
       <a class="btn" href="/scan?profile={{ profile }}&region={{ region }}">지금 스캔 실행</a>
+      {% if only_fail %}
+      <a class="btn btn-secondary" href="/dashboard?profile={{ profile }}&region={{ region }}">전체 보기</a>
+      {% else %}
+      <a class="btn btn-secondary" href="/dashboard?profile={{ profile }}&region={{ region }}&only_fail=true">FAIL만 보기</a>
+      {% endif %}
     </div>
 
     <div class="card">
@@ -47,6 +54,38 @@
         <div class="metric"><strong>PASS</strong><div class="status-pass">{{ summary.pass }}</div></div>
         <div class="metric"><strong>Errors</strong><div>{{ summary.errors }}</div></div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Latest Findings {% if only_fail %}(FAIL only){% endif %}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Severity</th>
+            <th>Check ID</th>
+            <th>Resource</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if findings %}
+            {% for f in findings %}
+            <tr>
+              <td class="status-{{ f.status | lower }}">{{ f.status }}</td>
+              <td>{{ f.severity }}</td>
+              <td>{{ f.check_id }}</td>
+              <td>{{ f.resource }}</td>
+              <td>{{ f.message }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5">표시할 결과가 없습니다.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
 
     <div class="card">

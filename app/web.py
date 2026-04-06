@@ -83,11 +83,17 @@ def results(limit: int = Query(20, ge=1, le=100)):
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(profile: str = Query("default"), region: str = Query("ap-northeast-2")):
+def dashboard(
+    profile: str = Query("default"),
+    region: str = Query("ap-northeast-2"),
+    only_fail: bool = Query(False),
+):
     reports = _report_list(limit=20)
 
     latest_json = next((r for r in reports if r["type"] == "json"), None)
     summary = {"total": 0, "fail": 0, "pass": 0, "errors": 0}
+    findings: list[dict] = []
+
     if latest_json:
         import json
 
@@ -100,11 +106,15 @@ def dashboard(profile: str = Query("default"), region: str = Query("ap-northeast
             "errors": len(payload.get("errors", [])),
         }
 
+    shown_findings = [f for f in findings if f.get("status") == "FAIL"] if only_fail else findings
+
     html = TEMPLATES.get_template("dashboard.html.j2").render(
         reports=reports,
         summary=summary,
+        findings=shown_findings,
         profile=profile,
         region=region,
+        only_fail=only_fail,
     )
     return HTMLResponse(content=html)
 
