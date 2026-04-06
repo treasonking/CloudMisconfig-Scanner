@@ -33,13 +33,15 @@ def _scan_reporters():
     ]
 
 
-def _report_list(limit: int = 20) -> list[dict]:
+def _report_list(limit: int = 20, cursor: int = 0) -> tuple[list[dict], str | None]:
     if not REPORTS_DIR.exists():
-        return []
+        return [], None
 
     files = sorted(REPORTS_DIR.glob("scan-*"), key=lambda p: p.stat().st_mtime, reverse=True)
+    start = max(cursor, 0)
+    end = start + limit
     items = []
-    for p in files[:limit]:
+    for p in files[start:end]:
         items.append(
             {
                 "filename": p.name,
@@ -49,7 +51,8 @@ def _report_list(limit: int = 20) -> list[dict]:
                 "type": p.suffix.lstrip("."),
             }
         )
-    return items
+    next_cursor = str(end) if end < len(files) else None
+    return items, next_cursor
 
 
 @app.get("/")
@@ -78,8 +81,10 @@ def scan(profile: str = Query("default"), region: str = Query("ap-northeast-2"))
 
 
 @app.get("/results")
-def results(limit: int = Query(20, ge=1, le=100)):
-    return {"reports": _report_list(limit=limit)}
+def results(limit: int = Query(20, ge=1, le=100), cursor: str | None = Query(None)):
+    offset = int(cursor) if cursor and cursor.isdigit() else 0
+    reports, next_cursor = _report_list(limit=limit, cursor=offset)
+    return {"reports": reports, "next_cursor": next_cursor}
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -87,8 +92,9 @@ def dashboard(
     profile: str = Query("default"),
     region: str = Query("ap-northeast-2"),
     only_fail: bool = Query(False),
+    severity: str | None = Query(None),
 ):
-    reports = _report_list(limit=20)
+    reports, _ = _report_list(limit=20)
 
     latest_json = next((r for r in reports if r["type"] == "json"), None)
     summary = {"total": 0, "fail": 0, "pass": 0, "errors": 0}
@@ -107,6 +113,9 @@ def dashboard(
         }
 
     shown_findings = [f for f in findings if f.get("status") == "FAIL"] if only_fail else findings
+    if severity:
+        normalized = severity.upper()
+        shown_findings = [f for f in shown_findings if str(f.get("severity", "")).upper() == normalized]
 
     html = TEMPLATES.get_template("dashboard.html.j2").render(
         reports=reports,
@@ -115,6 +124,7 @@ def dashboard(
         profile=profile,
         region=region,
         only_fail=only_fail,
+        severity=(severity or "").upper(),
     )
     return HTMLResponse(content=html)
 

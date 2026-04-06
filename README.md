@@ -59,9 +59,12 @@ uvicorn app.web:app --reload --port 8000
 
 엔드포인트:
 - `GET /scan?profile=default&region=ap-northeast-2`
-- `GET /results`
+- `GET /results?limit=20&cursor=0`
 - `GET /report/{filename}`
 - `GET /dashboard`
+- `GET /dashboard?only_fail=true&severity=HIGH`
+
+`/results`는 `next_cursor` 기반 pagination을 지원합니다.
 
 ## 테스트 실행
 ```bash
@@ -96,6 +99,10 @@ cloudmisconfig-scanner/
 │  ├─ providers/aws/
 │  ├─ checks/
 │  └─ reporting/
+├─ docs/
+│  ├─ interview-notes.md
+│  ├─ pr-summary.md
+│  └─ progress-status.md
 ├─ reports/
 ├─ tests/
 ├─ .github/workflows/ci.yml
