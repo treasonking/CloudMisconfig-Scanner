@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 
-from app.main import run_multi_scan, save_multi_scan_summary
+from app.main import parse_profiles_arg, run_multi_scan, save_multi_scan_summary
 from scanner.core.models import ScanContext, ScanResult, Finding
 
 
@@ -65,3 +65,12 @@ def test_save_multi_scan_summary_writes_json(tmp_path, monkeypatch):
     assert output.exists()
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["totals"]["profiles"] == 1
+
+
+def test_parse_profiles_arg_supports_file_and_comments(tmp_path):
+    profiles_file = tmp_path / "profiles.txt"
+    profiles_file.write_text("# comment\ndefault\nprod\n", encoding="utf-8")
+
+    parsed = parse_profiles_arg(profiles="dev,prod", profiles_file=str(profiles_file))
+
+    assert parsed == ["dev", "prod", "default"]

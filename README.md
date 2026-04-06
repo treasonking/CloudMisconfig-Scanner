@@ -51,6 +51,10 @@ python app/main.py scan --profile default --region ap-northeast-2
 ```bash
 python app/main.py scan-multi --profiles default,prod,dev --region ap-northeast-2
 ```
+또는 파일 입력:
+```bash
+python app/main.py scan-multi --profiles-file profiles.txt --region ap-northeast-2
+```
 
 또는 기본값으로 실행:
 ```bash
@@ -63,6 +67,7 @@ uvicorn app.web:app --reload --port 8000
 ```
 
 엔드포인트:
+- `GET /health`
 - `GET /scan?profile=default&region=ap-northeast-2`
 - `GET /scan-multi?profiles=default,prod&region=ap-northeast-2`
 - `GET /results?limit=20&cursor=0`
@@ -129,5 +134,5 @@ cloudmisconfig-scanner/
 - 알림(Slack/Email) 및 배치 스케줄링(CloudWatch/EventBridge) 연동 예정
 
 ## 진행 단계 요약
-- 완료: 1~20단계 (MVP)
-- 현재 완성도: 약 95%
+- 완료: 1~20단계 (MVP) + 운영 안정화 확장
+- 현재 완성도: 100% (MVP + 안정화 확장)

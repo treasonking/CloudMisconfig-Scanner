@@ -24,6 +24,7 @@ TEMPLATES = Environment(
 )
 
 app = FastAPI(title="CloudMisconfig Scanner API", version="0.1.0")
+ALLOWED_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
 
 
 def _scan_reporters():
@@ -63,6 +64,11 @@ def home():
     }
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/scan")
 def scan(profile: str = Query("default"), region: str = Query("ap-northeast-2")):
     result = run_scan(profile_name=profile, region_name=region, reporters=_scan_reporters())
@@ -93,7 +99,9 @@ def scan_multi(
 
 @app.get("/results")
 def results(limit: int = Query(20, ge=1, le=100), cursor: str | None = Query(None)):
-    offset = int(cursor) if cursor and cursor.isdigit() else 0
+    if cursor and not cursor.isdigit():
+        raise HTTPException(status_code=400, detail="cursor must be numeric")
+    offset = int(cursor) if cursor else 0
     reports, next_cursor = _report_list(limit=limit, cursor=offset)
     return {"reports": reports, "next_cursor": next_cursor}
 
@@ -126,6 +134,8 @@ def dashboard(
     shown_findings = [f for f in findings if f.get("status") == "FAIL"] if only_fail else findings
     if severity:
         normalized = severity.upper()
+        if normalized not in ALLOWED_SEVERITIES:
+            raise HTTPException(status_code=400, detail="Invalid severity value")
         shown_findings = [f for f in shown_findings if str(f.get("severity", "")).upper() == normalized]
 
     html = TEMPLATES.get_template("dashboard.html.j2").render(

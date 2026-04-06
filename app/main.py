@@ -124,6 +124,21 @@ def run_multi_scan(profiles: list[str], region_name: str = "ap-northeast-2") -> 
     return aggregate
 
 
+def parse_profiles_arg(profiles: str | None = None, profiles_file: str | None = None) -> list[str]:
+    items: list[str] = []
+    if profiles:
+        items.extend([p.strip() for p in profiles.split(",") if p.strip()])
+    if profiles_file:
+        file_path = Path(profiles_file)
+        if not file_path.exists():
+            raise FileNotFoundError(f"Profiles file not found: {profiles_file}")
+        lines = [line.strip() for line in file_path.read_text(encoding="utf-8").splitlines()]
+        items.extend([line for line in lines if line and not line.startswith("#")])
+
+    unique = list(dict.fromkeys(items))
+    return unique
+
+
 def save_multi_scan_summary(aggregate: dict) -> Path:
     reports_dir = ROOT / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -164,8 +179,13 @@ def main() -> int:
     scan_multi_parser = sub.add_parser("scan-multi", help="Run AWS scan for multiple profiles")
     scan_multi_parser.add_argument(
         "--profiles",
-        required=True,
+        required=False,
         help="Comma-separated profile names (e.g., default,prod,dev)",
+    )
+    scan_multi_parser.add_argument(
+        "--profiles-file",
+        required=False,
+        help="Text file containing AWS profile names (one profile per line)",
     )
     scan_multi_parser.add_argument("--region", default="ap-northeast-2", help="AWS region")
     scan_multi_parser.add_argument(
@@ -184,7 +204,9 @@ def main() -> int:
         run_scan(profile_name=profile, region_name=region)
         return 0
     if args.command == "scan-multi":
-        profiles = [p.strip() for p in args.profiles.split(",") if p.strip()]
+        profiles = parse_profiles_arg(profiles=args.profiles, profiles_file=args.profiles_file)
+        if not profiles:
+            raise SystemExit("No profiles provided. Use --profiles or --profiles-file.")
         aggregate = run_multi_scan(profiles=profiles, region_name=args.region)
         print_multi_scan_summary(aggregate)
         if not args.no_save:

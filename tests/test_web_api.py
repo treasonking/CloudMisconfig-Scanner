@@ -73,3 +73,19 @@ def test_scan_multi_endpoint_returns_aggregate(monkeypatch):
     payload = response.json()
     assert payload["totals"]["profiles"] == 2
     assert len(payload["profiles"]) == 2
+
+
+def test_results_endpoint_rejects_invalid_cursor():
+    client = TestClient(app)
+
+    response = client.get("/results?cursor=abc")
+
+    assert response.status_code == 400
+
+
+def test_dashboard_endpoint_rejects_invalid_severity():
+    client = TestClient(app)
+
+    response = client.get("/dashboard?severity=INVALID")
+
+    assert response.status_code == 400
