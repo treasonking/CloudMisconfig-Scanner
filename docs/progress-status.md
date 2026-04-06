@@ -15,6 +15,7 @@
 - 고도화 6차 완성도: 100% (CloudFormation 템플릿 `infra/eventbridge-lambda-schedule.yaml` 추가)
 - 고도화 7차 완성도: 100% (Step Functions 연동 템플릿 `infra/eventbridge-sfn-schedule.yaml` 추가)
 - 고도화 8차 완성도: 100% (Step Functions 상태머신 정의 예시 `infra/stepfunctions-scanner-runner.asl.json` 추가)
+- 고도화 9차 완성도: 100% (Lambda 핸들러 `app/lambda_handler.py` + 테스트 추가)
 - 사유:
   - 핵심 스캔(S3/IAM/SG), 위험도/권고사항, JSON/HTML, CLI, FastAPI, 대시보드, 테스트, CI까지 완료
   - 19/20단계 문서(주차 계획/오늘 체크리스트), CLI plan 명령, 멀티 프로필 스캔 명령/API, 입력 검증/헬스체크 완료
@@ -24,8 +25,9 @@
   - EventBridge-Lambda 스케줄 배포용 IaC 템플릿 추가 완료
   - EventBridge-Step Functions 스케줄 + invoke role 포함 IaC 템플릿 추가 완료
   - Step Functions 워크플로우 예시 정의(재시도 포함) 추가 완료
+  - Lambda 실행 엔트리포인트(scan/scan-multi/scan-assume-role-multi) 및 단위 테스트 추가 완료
 
 ## 다음 우선순위
 1. 포트폴리오 최종 정리 (README 이미지/캡처 포함)
-2. Lambda 런타임 핸들러 샘플(app/main.py scan 호출 래퍼) 추가
+2. GitHub PR 생성 및 머지 체크리스트 마감
 3. PR 정리 및 merge 준비

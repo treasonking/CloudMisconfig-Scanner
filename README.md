@@ -84,6 +84,11 @@ Step Functions 상태머신 정의 예시:
 ```bash
 aws stepfunctions create-state-machine --name cloudmisconfig-runner --definition file://infra/stepfunctions-scanner-runner.asl.json --role-arn arn:aws:iam::111111111111:role/StepFunctionsExecutionRole --definition-substitutions '{"ScannerLambdaArn":"arn:aws:lambda:ap-northeast-2:111111111111:function:cloudmisconfig-runner"}'
 ```
+Lambda 핸들러 엔트리포인트:
+```python
+app.lambda_handler.handler
+```
+`event.scan_mode` 값으로 `scan`, `scan-multi`, `scan-assume-role-multi`를 지원합니다.
 Slack 알림 예시:
 ```bash
 python app/main.py scan-multi --profiles default,prod --slack-webhook https://hooks.slack.com/services/xxx
@@ -185,6 +190,7 @@ cloudmisconfig-scanner/
 - EventBridge 설정 계획(`plan-eventbridge`) 자동 생성 완료
 - EventBridge -> Step Functions 스케줄 IaC 템플릿 완료
 - Step Functions 상태머신 예시 정의(`infra/stepfunctions-scanner-runner.asl.json`) 완료
+- Lambda 실행 엔트리포인트(`app/lambda_handler.py`) 완료
 - 규칙 수 확대 및 서비스별 권한 부족 상황에 대한 부분 실패 세분화 예정
 - 클라우드 네이티브 스케줄링 실제 실행 타겟(Lambda/Step Functions) 연동 고도화 예정
 
