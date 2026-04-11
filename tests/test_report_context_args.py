@@ -44,3 +44,26 @@ def test_build_report_context_from_args_builds_scope_and_lists(tmp_path):
     assert context["limitations"][0].startswith("tag")
     assert context["improvements"][0].startswith("add")
     assert len(context["benchmark_cases"]) == 1
+
+
+def test_build_report_context_uses_default_benchmark_file(monkeypatch, tmp_path):
+    default_bench = tmp_path / "benchmark-sample.json"
+    default_bench.write_text(
+        json.dumps({"cases": [{"check_id": "AWS.S3.PublicExposure", "resource": "s3://risk", "expected": "FAIL"}]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("app.main.DEFAULT_BENCHMARK_FILE", default_bench)
+
+    args = argparse.Namespace(
+        benchmark_file=None,
+        test_target_total=None,
+        normal_targets=None,
+        misconfig_targets=None,
+        limitation=None,
+        improvement=None,
+    )
+
+    context = build_report_context_from_args(args)
+
+    assert context is not None
+    assert len(context["benchmark_cases"]) == 1

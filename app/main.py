@@ -9,6 +9,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+DEFAULT_BENCHMARK_FILE = ROOT / "docs" / "examples" / "benchmark-sample.json"
 
 from scanner.checks.aws import (
     IAMRoleTrustPolicyCheck,
@@ -209,6 +210,8 @@ def build_report_context_from_args(args) -> dict[str, Any] | None:
     context: dict[str, Any] = {}
 
     benchmark_file = getattr(args, "benchmark_file", None)
+    if not benchmark_file and DEFAULT_BENCHMARK_FILE.exists():
+        benchmark_file = str(DEFAULT_BENCHMARK_FILE)
     if benchmark_file:
         context["benchmark_cases"] = load_benchmark_cases_file(benchmark_file)
 
