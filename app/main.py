@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 import sys
 import time
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -73,12 +74,14 @@ def build_scanner(
     reporters: list[Reporter] | None = None,
     role_arn: str | None = None,
     external_id: str | None = None,
+    report_context: dict[str, Any] | None = None,
 ) -> MisconfigScanner:
     provider = AWSProvider(
         region_name=region_name,
         profile_name=profile_name,
         role_arn=role_arn,
         external_id=external_id,
+        initial_data=report_context,
     )
     return MisconfigScanner(
         provider=provider,
@@ -101,6 +104,7 @@ def run_scan(
     reporters: list[Reporter] | None = None,
     role_arn: str | None = None,
     external_id: str | None = None,
+    report_context: dict[str, Any] | None = None,
 ):
     scanner = build_scanner(
         profile_name=profile_name,
@@ -108,6 +112,7 @@ def run_scan(
         reporters=reporters,
         role_arn=role_arn,
         external_id=external_id,
+        report_context=report_context,
     )
     return scanner.run()
 
@@ -175,6 +180,57 @@ def parse_profiles_arg(profiles: str | None = None, profiles_file: str | None = 
 
     unique = list(dict.fromkeys(items))
     return unique
+
+
+def load_benchmark_cases_file(benchmark_file: str) -> list[dict]:
+    path = Path(benchmark_file)
+    if not path.exists():
+        raise FileNotFoundError(f"Benchmark file not found: {benchmark_file}")
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        cases = payload
+    elif isinstance(payload, dict) and isinstance(payload.get("cases"), list):
+        cases = payload["cases"]
+    else:
+        raise ValueError("Benchmark file must be JSON list or object with 'cases' list.")
+
+    normalized: list[dict] = []
+    for case in cases:
+        if not isinstance(case, dict):
+            continue
+        if not case.get("check_id") or not case.get("resource"):
+            continue
+        normalized.append(case)
+    return normalized
+
+
+def build_report_context_from_args(args) -> dict[str, Any] | None:
+    context: dict[str, Any] = {}
+
+    benchmark_file = getattr(args, "benchmark_file", None)
+    if benchmark_file:
+        context["benchmark_cases"] = load_benchmark_cases_file(benchmark_file)
+
+    total_cases = getattr(args, "test_target_total", None)
+    normal_cases = getattr(args, "normal_targets", None)
+    misconfigured_cases = getattr(args, "misconfig_targets", None)
+    if total_cases is not None or normal_cases is not None or misconfigured_cases is not None:
+        context["test_scope"] = {
+            "total_cases": total_cases or 0,
+            "normal_cases": normal_cases or 0,
+            "misconfigured_cases": misconfigured_cases or 0,
+        }
+
+    limitations = getattr(args, "limitation", None)
+    if limitations:
+        context["limitations"] = limitations
+
+    improvements = getattr(args, "improvement", None)
+    if improvements:
+        context["improvements"] = improvements
+
+    return context or None
 
 
 def parse_assume_role_targets_file(targets_file: str) -> list[dict]:
@@ -494,6 +550,22 @@ def main() -> int:
     scan_parser.add_argument("--smtp-from", default=None, help="SMTP sender email")
     scan_parser.add_argument("--smtp-user", default=None, help="SMTP username")
     scan_parser.add_argument("--smtp-password", default=None, help="SMTP password")
+    scan_parser.add_argument("--benchmark-file", default=None, help="JSON benchmark file for detection quality metrics")
+    scan_parser.add_argument("--test-target-total", default=None, type=int, help="Total test targets for report scope")
+    scan_parser.add_argument("--normal-targets", default=None, type=int, help="Number of normal (safe) test targets")
+    scan_parser.add_argument("--misconfig-targets", default=None, type=int, help="Number of misconfigured test targets")
+    scan_parser.add_argument(
+        "--limitation",
+        action="append",
+        default=None,
+        help="Known limitation item (repeatable)",
+    )
+    scan_parser.add_argument(
+        "--improvement",
+        action="append",
+        default=None,
+        help="Improvement direction item (repeatable)",
+    )
 
     scan_multi_parser = sub.add_parser("scan-multi", help="Run AWS scan for multiple profiles")
     scan_multi_parser.add_argument(
@@ -597,11 +669,13 @@ def main() -> int:
     if args.command in {"scan", None}:
         profile = getattr(args, "profile", "default")
         region = getattr(args, "region", "ap-northeast-2")
+        report_context = build_report_context_from_args(args)
         result = run_scan(
             profile_name=profile,
             region_name=region,
             role_arn=getattr(args, "role_arn", None),
             external_id=getattr(args, "external_id", None),
+            report_context=report_context,
         )
         aggregate = _build_single_target_aggregate(result)
         _notify_from_args(args, aggregate)

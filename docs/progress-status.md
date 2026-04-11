@@ -16,6 +16,7 @@
 - 고도화 7차 완성도: 100% (Step Functions 연동 템플릿 `infra/eventbridge-sfn-schedule.yaml` 추가)
 - 고도화 8차 완성도: 100% (Step Functions 상태머신 정의 예시 `infra/stepfunctions-scanner-runner.asl.json` 추가)
 - 고도화 9차 완성도: 100% (Lambda 핸들러 `app/lambda_handler.py` + 테스트 추가)
+- 고도화 10차 완성도: 100% (리포트 탐지 품질 지표/근거/한계/개선 섹션 + benchmark 입력 지원)
 - 사유:
   - 핵심 스캔(S3/IAM/SG), 위험도/권고사항, JSON/HTML, CLI, FastAPI, 대시보드, 테스트, CI까지 완료
   - 19/20단계 문서(주차 계획/오늘 체크리스트), CLI plan 명령, 멀티 프로필 스캔 명령/API, 입력 검증/헬스체크 완료
@@ -26,6 +27,7 @@
   - EventBridge-Step Functions 스케줄 + invoke role 포함 IaC 템플릿 추가 완료
   - Step Functions 워크플로우 예시 정의(재시도 포함) 추가 완료
   - Lambda 실행 엔트리포인트(scan/scan-multi/scan-assume-role-multi) 및 단위 테스트 추가 완료
+  - JSON/HTML 리포트에 TP/FP/FN, 테스트 대상 수, Reason/Risk/Recommendation/Evidence, 한계/개선 방향 포함
 
 ## 다음 우선순위
 1. 포트폴리오 최종 정리 (README 이미지/캡처 포함)

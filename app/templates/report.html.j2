@@ -48,6 +48,27 @@
     .sev-HIGH { color: var(--high); font-weight: 700; }
     .sev-MEDIUM { color: var(--medium); font-weight: 700; }
     .sev-LOW, .sev-INFO { color: var(--low); font-weight: 700; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      border: 1px solid #dbe3ee;
+      font-size: 12px;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      color: #1f2937;
+      white-space: pre-wrap;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -57,7 +78,28 @@
       <div class="meta">Provider: {{ context.provider }} | Region: {{ context.region }} | Profile: {{ context.profile or '-' }}</div>
       <div class="meta">Started At (UTC): {{ context.started_at }}</div>
       <div class="meta">Total Findings: {{ summary.total }} | FAIL: {{ summary.fail }} | PASS: {{ summary.pass }}</div>
-      <div class="meta">CRITICAL: {{ summary.critical }} | HIGH: {{ summary.high }} | MEDIUM: {{ summary.medium }} | LOW/INFO: {{ summary.low_info }}</div>
+      <div class="meta">CRITICAL: {{ summary.critical }} | HIGH: {{ summary.high }} | MEDIUM: {{ summary.medium }} | LOW: {{ summary.low }} | INFO: {{ summary.info }}</div>
+    </div>
+
+    <div class="card">
+      <h2>Test Scope</h2>
+      <div class="meta">총 테스트 대상 수: {{ test_scope.total_cases }}</div>
+      <div class="meta">정상 케이스: {{ test_scope.normal_cases }} | 오설정 케이스: {{ test_scope.misconfigured_cases }}</div>
+      <div class="meta">정상/비정상 비교 시연을 위해 PASS/FAIL 결과를 함께 기록했습니다.</div>
+    </div>
+
+    <div class="card">
+      <h2>Detection Quality</h2>
+      {% if detection_quality.available %}
+      <div class="meta">탐지 성공 수(TP): {{ detection_quality.detected_success }}</div>
+      <div class="meta">오탐 수(FP): {{ detection_quality.false_positives }}</div>
+      <div class="meta">미탐 수(FN): {{ detection_quality.missed_detections }}</div>
+      <div class="meta">Precision: {{ detection_quality.precision }} | Recall: {{ detection_quality.recall }}</div>
+      <div class="meta">평가 대상: {{ detection_quality.total_cases }} (정상 {{ detection_quality.normal_cases }} / 오설정 {{ detection_quality.misconfigured_cases }})</div>
+      {% else %}
+      <div class="meta">{{ detection_quality.message }}</div>
+      <div class="meta">팁: `--benchmark-file`로 기대 결과(정상/오설정)를 넣으면 오탐/미탐을 자동 계산합니다.</div>
+      {% endif %}
     </div>
 
     {% if errors %}
@@ -80,8 +122,10 @@
             <th>Severity</th>
             <th>Check ID</th>
             <th>Resource</th>
-            <th>Message</th>
+            <th>Reason</th>
+            <th>Risk</th>
             <th>Recommendation</th>
+            <th>Evidence</th>
           </tr>
         </thead>
         <tbody>
@@ -91,12 +135,34 @@
             <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
             <td>{{ f.check_id }}</td>
             <td>{{ f.resource }}</td>
-            <td>{{ f.message }}</td>
+            <td>{{ f.reason }}</td>
+            <td>{{ f.risk }}</td>
             <td>{{ f.recommendation or '-' }}</td>
+            <td>
+              {% if f.evidence %}
+              <div class="mono">{{ to_json(f.evidence) }}</div>
+              {% else %}
+              -
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
+    <div class="card">
+      <h2>Known Limitations</h2>
+      {% for item in limitations %}
+      <span class="pill">{{ item }}</span>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h2>Improvement Directions</h2>
+      {% for item in improvements %}
+      <span class="pill">{{ item }}</span>
+      {% endfor %}
     </div>
   </div>
 </body>

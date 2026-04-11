@@ -61,6 +61,10 @@ python -m pip install -r requirements.txt
 ```bash
 python app/main.py scan --profile default --region ap-northeast-2
 ```
+탐지 성능 지표까지 포함한 스캔(벤치마크 입력):
+```bash
+python app/main.py scan --profile default --benchmark-file docs/examples/benchmark-sample.json --test-target-total 20 --normal-targets 8 --misconfig-targets 12 --limitation "태그 기반 예외처리 미지원" --improvement "allowlist 정책 추가"
+```
 
 멀티 프로필 스캔:
 ```bash
@@ -147,6 +151,20 @@ uvicorn app.web:app --reload --port 8000
 python -m pytest -q
 ```
 
+## 보고서 필수 항목 (자동 포함)
+- 테스트 대상 수
+  - 총 대상 수
+  - 정상/오설정 분포
+- 탐지 성능 지표
+  - 탐지 성공 수(TP)
+  - 오탐 수(FP)
+  - 미탐 수(FN)
+  - Precision/Recall
+- 탐지 근거
+  - Reason, Risk, Recommendation, Evidence
+- 한계/개선 방향
+  - 기본 항목 자동 포함 + CLI 인자로 사용자 정의 가능
+
 ## 서비스별 상태 표준화
 - 스캔 결과에 `service_status`를 포함합니다.
 - 서비스별 상태 값:
@@ -178,6 +196,7 @@ cloudmisconfig-scanner/
 │  ├─ checks/aws/
 │  └─ reporting/
 ├─ docs/
+│  ├─ examples/
 │  ├─ interview-notes.md
 │  ├─ pr-summary.md
 │  ├─ progress-status.md

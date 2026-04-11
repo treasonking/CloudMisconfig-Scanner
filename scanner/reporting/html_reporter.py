@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from scanner.core.models import ScanResult
+from scanner.reporting.analysis import (
+    DEFAULT_IMPROVEMENTS,
+    DEFAULT_LIMITATIONS,
+    build_detection_quality,
+    build_finding_rows,
+    build_summary,
+    build_test_scope,
+)
 
 
 class HtmlReporter:
@@ -22,28 +31,12 @@ class HtmlReporter:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         output_file = self.output_dir / f"scan-{timestamp}.html"
 
-        findings = [
-            {
-                "check_id": f.check_id,
-                "title": f.title,
-                "status": f.status,
-                "severity": f.severity,
-                "resource": f.resource,
-                "message": f.message,
-                "recommendation": f.recommendation,
-            }
-            for f in result.findings
-        ]
-
-        summary = {
-            "total": len(findings),
-            "fail": sum(1 for f in findings if f["status"] == "FAIL"),
-            "pass": sum(1 for f in findings if f["status"] == "PASS"),
-            "critical": sum(1 for f in findings if f["severity"] == "CRITICAL"),
-            "high": sum(1 for f in findings if f["severity"] == "HIGH"),
-            "medium": sum(1 for f in findings if f["severity"] == "MEDIUM"),
-            "low_info": sum(1 for f in findings if f["severity"] in {"LOW", "INFO"}),
-        }
+        findings = build_finding_rows(result.findings)
+        summary = build_summary(findings)
+        benchmark_cases = result.data.get("benchmark_cases")
+        scope_override = result.data.get("test_scope")
+        test_scope = build_test_scope(summary, benchmark_cases=benchmark_cases, override_scope=scope_override)
+        detection_quality = build_detection_quality(findings, benchmark_cases=benchmark_cases)
 
         html = template.render(
             context={
@@ -55,6 +48,11 @@ class HtmlReporter:
             errors=result.errors,
             findings=findings,
             summary=summary,
+            test_scope=test_scope,
+            detection_quality=detection_quality,
+            limitations=result.data.get("limitations") or DEFAULT_LIMITATIONS,
+            improvements=result.data.get("improvements") or DEFAULT_IMPROVEMENTS,
+            to_json=lambda value: json.dumps(value, ensure_ascii=False),
         )
         output_file.write_text(html, encoding="utf-8")
         return f"[REPORT] HTML saved: {output_file}"

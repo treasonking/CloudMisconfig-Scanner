@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "check_id": "AWS.S3.PublicExposure",
+      "resource": "s3://cms-risk-bucket-yds-20260330",
+      "expected": "FAIL"
+    },
+    {
+      "check_id": "AWS.S3.EncryptionEnabled",
+      "resource": "s3://cms-safe-bucket-001",
+      "expected": "PASS"
+    },
+    {
+      "check_id": "AWS.EC2.SG.PublicIngress",
+      "resource": "sg:sg-0123456789abcdef0/risk-sg",
+      "expected": "FAIL"
+    }
+  ]
+}

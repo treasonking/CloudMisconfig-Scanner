@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError, ProfileNotFound
 
@@ -22,12 +23,14 @@ class AWSProvider:
         role_arn: str | None = None,
         external_id: str | None = None,
         role_session_name: str = "cloudmisconfig-scanner",
+        initial_data: dict | None = None,
     ):
         self.region_name = region_name
         self.profile_name = profile_name
         self.role_arn = role_arn
         self.external_id = external_id
         self.role_session_name = role_session_name
+        self.initial_data = initial_data or {}
 
     def _base_session(self) -> boto3.Session:
         if self.profile_name:
@@ -58,6 +61,8 @@ class AWSProvider:
     def collect(self) -> ScanResult:
         context = ScanContext(provider=self.name, region=self.region_name, profile=self.profile_name)
         result = ScanResult(context=context)
+        if self.initial_data:
+            result.data.update(deepcopy(self.initial_data))
         result.data["service_status"] = {
             "s3": {"status": "PENDING", "errors": []},
             "iam": {"status": "PENDING", "errors": []},
