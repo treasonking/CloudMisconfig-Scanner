@@ -278,3 +278,18 @@ def build_scope_warnings(
         )
 
     return warnings
+
+
+def build_quality_scope(detection_quality: dict[str, Any], test_scope: dict[str, int]) -> dict[str, Any]:
+    total_targets = int(test_scope.get("total_cases", 0))
+    benchmark_targets = int(detection_quality.get("total_cases", 0)) if detection_quality.get("available") else 0
+    coverage_rate = (benchmark_targets / total_targets) if total_targets > 0 else 0.0
+    partial = detection_quality.get("available") and coverage_rate < 1.0
+
+    return {
+        "total_targets": total_targets,
+        "benchmark_targets": benchmark_targets,
+        "coverage_rate": round(coverage_rate, 4),
+        "partial_metrics": bool(partial),
+        "metrics_label": "Benchmark subset metrics" if partial else "Full-scope metrics",
+    }

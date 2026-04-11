@@ -165,6 +165,7 @@ python -m pytest -q
   - 미탐 수(FN)
   - Expected vs Actual 매트릭스(리소스 단위)
   - Precision/Recall
+  - Coverage 100% 미만일 때는 Precision/Recall을 `Benchmark subset metrics`로 표시
 - 탐지 근거
   - Reason, Risk, Recommendation, Evidence
 - 한계/개선 방향

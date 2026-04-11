@@ -151,9 +151,12 @@
       <div class="meta">오탐 수(FP): {{ detection_quality.false_positives }}</div>
       <div class="meta">미탐 수(FN): {{ detection_quality.missed_detections }}</div>
       <div class="meta">미평가 수(Not Evaluated): {{ detection_quality.not_evaluated }}</div>
-      <div class="meta">Precision: {{ detection_quality.precision }} | Recall: {{ detection_quality.recall }}</div>
+      <div class="meta">{{ quality_scope.metrics_label }} - Precision: {{ detection_quality.precision }} | Recall: {{ detection_quality.recall }}</div>
       <div class="meta">평가 대상: {{ detection_quality.total_cases }} (정상 {{ detection_quality.normal_cases }} / 오설정 {{ detection_quality.misconfigured_cases }})</div>
       <div class="meta">Benchmark Coverage: {{ detection_quality.total_cases }} / {{ test_scope.total_cases }} ({{ ((detection_quality.total_cases / test_scope.total_cases) * 100) | round(1) if test_scope.total_cases > 0 else 0 }}%)</div>
+      {% if quality_scope.partial_metrics %}
+      <div class="meta warn">Coverage가 100% 미만이므로 Precision/Recall은 전체 테스트셋이 아닌 benchmark 부분집합 기준입니다.</div>
+      {% endif %}
       {% else %}
       <div class="meta">{{ detection_quality.message }}</div>
       <div class="meta">팁: `--benchmark-file`로 기대 결과(정상/오설정)를 넣으면 오탐/미탐을 자동 계산합니다.</div>

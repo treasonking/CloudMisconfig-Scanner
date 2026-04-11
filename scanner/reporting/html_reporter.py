@@ -13,6 +13,7 @@ from scanner.reporting.analysis import (
     build_case_matrix,
     build_detection_quality,
     build_finding_rows,
+    build_quality_scope,
     build_scope_warnings,
     build_summary,
     build_test_scope,
@@ -39,6 +40,7 @@ class HtmlReporter:
         scope_override = result.data.get("test_scope")
         test_scope = build_test_scope(summary, benchmark_cases=benchmark_cases, override_scope=scope_override)
         detection_quality = build_detection_quality(findings, benchmark_cases=benchmark_cases)
+        quality_scope = build_quality_scope(detection_quality, test_scope)
         case_matrix = build_case_matrix(findings, benchmark_cases=benchmark_cases)
         scope_warnings = build_scope_warnings(test_scope, benchmark_cases=benchmark_cases, case_matrix=case_matrix)
 
@@ -54,6 +56,7 @@ class HtmlReporter:
             summary=summary,
             test_scope=test_scope,
             detection_quality=detection_quality,
+            quality_scope=quality_scope,
             case_matrix=case_matrix,
             scope_warnings=scope_warnings,
             limitations=result.data.get("limitations") or DEFAULT_LIMITATIONS,

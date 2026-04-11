@@ -11,6 +11,7 @@ from scanner.reporting.analysis import (
     build_case_matrix,
     build_detection_quality,
     build_finding_rows,
+    build_quality_scope,
     build_scope_warnings,
     build_summary,
     build_test_scope,
@@ -34,6 +35,7 @@ class JsonReporter:
         payload["summary"] = summary
         payload["test_scope"] = build_test_scope(summary, benchmark_cases=benchmark_cases, override_scope=scope_override)
         payload["detection_quality"] = build_detection_quality(rows, benchmark_cases=benchmark_cases)
+        payload["quality_scope"] = build_quality_scope(payload["detection_quality"], payload["test_scope"])
         payload["case_matrix"] = build_case_matrix(rows, benchmark_cases=benchmark_cases)
         payload["scope_warnings"] = build_scope_warnings(
             payload["test_scope"],
