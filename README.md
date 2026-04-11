@@ -65,6 +65,10 @@ python app/main.py scan --profile default --region ap-northeast-2
 ```bash
 python app/main.py scan --profile default --benchmark-file docs/examples/benchmark-sample.json --test-target-total 20 --normal-targets 8 --misconfig-targets 12 --limitation "태그 기반 예외처리 미지원" --improvement "allowlist 정책 추가"
 ```
+참고:
+- `test-target-*`는 전체 실험 설계 규모(예: 총 20개)를 뜻합니다.
+- `benchmark-file`은 실제 Expected vs Actual 품질평가에 사용된 케이스 목록입니다.
+- 리포트에서 `Benchmark Coverage`가 함께 표시됩니다.
 
 멀티 프로필 스캔:
 ```bash

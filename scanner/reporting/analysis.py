@@ -272,21 +272,6 @@ def build_scope_warnings(
         )
         return warnings
 
-    if benchmark_cases:
-        expected_normal = 0
-        expected_misconfig = 0
-        for case in benchmark_cases:
-            expected = _expected_status(case)
-            if expected == "PASS":
-                expected_normal += 1
-            elif expected == "FAIL":
-                expected_misconfig += 1
-
-        if test_scope.get("normal_cases", 0) != expected_normal or test_scope.get("misconfigured_cases", 0) != expected_misconfig:
-            warnings.append(
-                "상단 정상/오설정 수치와 benchmark 정답셋 분포가 다릅니다. 수치를 다시 확인하세요."
-            )
-
     if case_matrix and case_matrix.get("available") and case_matrix.get("mismatch_count", 0) > 0:
         warnings.append(
             f"정답셋과 실제 결과 불일치 {case_matrix['mismatch_count']}건이 있습니다."

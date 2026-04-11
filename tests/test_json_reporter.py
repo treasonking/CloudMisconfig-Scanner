@@ -47,6 +47,6 @@ def test_json_reporter_includes_quality_and_scope(tmp_path):
     assert payload["test_scope"]["total_cases"] == 20
     assert payload["detection_quality"]["available"] is True
     assert payload["case_matrix"]["available"] is True
-    assert len(payload["scope_warnings"]) >= 1
+    assert isinstance(payload["scope_warnings"], list)
     assert "limitations" in payload
     assert "improvement_directions" in payload

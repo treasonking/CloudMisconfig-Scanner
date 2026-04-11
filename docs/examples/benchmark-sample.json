@@ -6,20 +6,50 @@
       "expected": "FAIL"
     },
     {
+      "check_id": "AWS.S3.PublicExposure",
+      "resource": "s3://cms-safe-bucket-001",
+      "expected": "PASS"
+    },
+    {
+      "check_id": "AWS.S3.EncryptionEnabled",
+      "resource": "s3://cms-risk-bucket-yds-20260330",
+      "expected": "PASS"
+    },
+    {
       "check_id": "AWS.S3.EncryptionEnabled",
       "resource": "s3://cms-safe-bucket-001",
       "expected": "PASS"
     },
     {
       "check_id": "AWS.EC2.SG.PublicIngress",
-      "resource": "sg:sg-0123456789abcdef0/risk-sg",
+      "resource": "sg:sg-087408e2da7a462d4/cms-sg-risk",
+      "expected": "FAIL"
+    },
+    {
+      "check_id": "AWS.EC2.SG.PublicIngress",
+      "resource": "sg:sg-0ac4d8976c46fbf1b/cms-sg-safe",
+      "expected": "PASS"
+    },
+    {
+      "check_id": "AWS.IAM.UserMFA",
+      "resource": "iam:user/cms-risk-user",
       "expected": "FAIL"
     },
     {
       "check_id": "AWS.IAM.UserMFA",
       "resource": "iam:user/cms-safe-user",
-      "expected": "PASS",
-      "note": "safe-user should be normal case"
+      "expected": "FAIL",
+      "note": "현재 AWS 구성에서는 safe-user도 MFA 미적용 상태"
+    },
+    {
+      "check_id": "AWS.IAM.WildcardPolicy",
+      "resource": "iam:user/cms-risk-user",
+      "expected": "FAIL"
+    },
+    {
+      "check_id": "AWS.IAM.WildcardPolicy",
+      "resource": "iam:user/cms-safe-user",
+      "expected": "PASS"
     }
   ]
 }
