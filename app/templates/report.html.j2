@@ -42,6 +42,22 @@
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 10px 8px; vertical-align: top; }
     th { background: #f6f9fd; }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .findings-table {
+      width: 100%;
+      min-width: 920px;
+      table-layout: fixed;
+    }
+    .findings-table th:nth-child(1), .findings-table td:nth-child(1) { width: 80px; }
+    .findings-table th:nth-child(2), .findings-table td:nth-child(2) { width: 90px; }
+    .findings-table th:nth-child(3), .findings-table td:nth-child(3) { width: 180px; }
+    .findings-table th:nth-child(4), .findings-table td:nth-child(4) { width: 220px; }
+    .findings-table th:nth-child(5), .findings-table td:nth-child(5) { width: 280px; }
+    .findings-table th:nth-child(6), .findings-table td:nth-child(6) { width: 220px; }
     .status-PASS { color: var(--pass); font-weight: 700; }
     .status-FAIL { color: var(--fail); font-weight: 700; }
     .sev-CRITICAL { color: var(--critical); font-weight: 700; }
@@ -68,6 +84,28 @@
       border-radius: 8px;
       padding: 6px;
       margin-top: 6px;
+    }
+    .analysis-item {
+      margin-bottom: 6px;
+      line-height: 1.4;
+      color: var(--text);
+    }
+    .analysis-item b {
+      display: inline-block;
+      min-width: 120px;
+      color: #334155;
+      font-size: 12px;
+    }
+    details summary {
+      cursor: pointer;
+      color: #1d4ed8;
+      font-size: 13px;
+      user-select: none;
+    }
+    @media (max-width: 1100px) {
+      .wrap {
+        max-width: 100%;
+      }
     }
   </style>
 </head>
@@ -115,40 +153,45 @@
 
     <div class="card">
       <h2>Findings</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Status</th>
-            <th>Severity</th>
-            <th>Check ID</th>
-            <th>Resource</th>
-            <th>Reason</th>
-            <th>Risk</th>
-            <th>Recommendation</th>
-            <th>Evidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for f in findings %}
-          <tr>
-            <td class="status-{{ f.status }}">{{ f.status }}</td>
-            <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
-            <td>{{ f.check_id }}</td>
-            <td>{{ f.resource }}</td>
-            <td>{{ f.reason }}</td>
-            <td>{{ f.risk }}</td>
-            <td>{{ f.recommendation or '-' }}</td>
-            <td>
-              {% if f.evidence %}
-              <div class="mono">{{ to_json(f.evidence) }}</div>
-              {% else %}
-              -
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="findings-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Severity</th>
+              <th>Check ID</th>
+              <th>Resource</th>
+              <th>Analysis</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in findings %}
+            <tr>
+              <td class="status-{{ f.status }}">{{ f.status }}</td>
+              <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
+              <td>{{ f.check_id }}</td>
+              <td>{{ f.resource }}</td>
+              <td>
+                <div class="analysis-item"><b>Reason</b>{{ f.reason }}</div>
+                <div class="analysis-item"><b>Risk</b>{{ f.risk }}</div>
+                <div class="analysis-item"><b>Recommendation</b>{{ f.recommendation or '-' }}</div>
+              </td>
+              <td>
+                {% if f.evidence %}
+                <details>
+                  <summary>View JSON</summary>
+                  <div class="mono">{{ to_json(f.evidence) }}</div>
+                </details>
+                {% else %}
+                -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="card">

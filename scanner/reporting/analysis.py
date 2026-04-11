@@ -39,7 +39,10 @@ def build_finding_rows(findings: list[Finding]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for finding in findings:
         reason = finding.message
-        risk = _CHECK_RISK_HINT.get(finding.check_id, _SEVERITY_RISK.get(finding.severity, "Security risk"))
+        if finding.status == "PASS":
+            risk = "No immediate risk detected"
+        else:
+            risk = _CHECK_RISK_HINT.get(finding.check_id, _SEVERITY_RISK.get(finding.severity, "Security risk"))
         rows.append(
             {
                 "check_id": finding.check_id,
