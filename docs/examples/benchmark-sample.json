@@ -14,6 +14,12 @@
       "check_id": "AWS.EC2.SG.PublicIngress",
       "resource": "sg:sg-0123456789abcdef0/risk-sg",
       "expected": "FAIL"
+    },
+    {
+      "check_id": "AWS.IAM.UserMFA",
+      "resource": "iam:user/cms-safe-user",
+      "expected": "PASS",
+      "note": "safe-user should be normal case"
     }
   ]
 }

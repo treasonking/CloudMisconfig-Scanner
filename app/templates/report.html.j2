@@ -102,6 +102,17 @@
       font-size: 13px;
       user-select: none;
     }
+    .warn {
+      color: #b45309;
+      font-weight: 600;
+    }
+    .ok {
+      color: #166534;
+      font-weight: 600;
+    }
+    .outcome-TP, .outcome-TN { color: #166534; font-weight: 700; }
+    .outcome-FP, .outcome-FN, .outcome-NOT_EVALUATED, .outcome-UNKNOWN_EXPECTED { color: #b91c1c; font-weight: 700; }
+    .mini-table th, .mini-table td { font-size: 13px; }
     @media (max-width: 1100px) {
       .wrap {
         max-width: 100%;
@@ -124,6 +135,13 @@
       <div class="meta">총 테스트 대상 수: {{ test_scope.total_cases }}</div>
       <div class="meta">정상 케이스: {{ test_scope.normal_cases }} | 오설정 케이스: {{ test_scope.misconfigured_cases }}</div>
       <div class="meta">정상/비정상 비교 시연을 위해 PASS/FAIL 결과를 함께 기록했습니다.</div>
+      {% if scope_warnings %}
+      <div style="margin-top:8px;">
+        {% for w in scope_warnings %}
+        <div class="meta warn">- {{ w }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
 
     <div class="card">
@@ -132,11 +150,53 @@
       <div class="meta">탐지 성공 수(TP): {{ detection_quality.detected_success }}</div>
       <div class="meta">오탐 수(FP): {{ detection_quality.false_positives }}</div>
       <div class="meta">미탐 수(FN): {{ detection_quality.missed_detections }}</div>
+      <div class="meta">미평가 수(Not Evaluated): {{ detection_quality.not_evaluated }}</div>
       <div class="meta">Precision: {{ detection_quality.precision }} | Recall: {{ detection_quality.recall }}</div>
       <div class="meta">평가 대상: {{ detection_quality.total_cases }} (정상 {{ detection_quality.normal_cases }} / 오설정 {{ detection_quality.misconfigured_cases }})</div>
       {% else %}
       <div class="meta">{{ detection_quality.message }}</div>
       <div class="meta">팁: `--benchmark-file`로 기대 결과(정상/오설정)를 넣으면 오탐/미탐을 자동 계산합니다.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Expected vs Actual Matrix</h2>
+      {% if case_matrix.available %}
+      {% if case_matrix.mismatch_count > 0 %}
+      <div class="meta warn">불일치 {{ case_matrix.mismatch_count }}건 발견: 정답셋과 실제 AWS 상태 또는 규칙을 확인하세요.</div>
+      {% else %}
+      <div class="meta ok">정답셋과 실제 탐지 결과가 모두 일치합니다.</div>
+      {% endif %}
+      <div class="table-wrap" style="margin-top:8px;">
+        <table class="mini-table" style="min-width:860px;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Check ID</th>
+              <th>Resource</th>
+              <th>Expected</th>
+              <th>Actual</th>
+              <th>Outcome</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in case_matrix.cases %}
+            <tr>
+              <td>{{ c.index }}</td>
+              <td>{{ c.check_id }}</td>
+              <td>{{ c.resource }}</td>
+              <td>{{ c.expected }}</td>
+              <td>{{ c.actual }}</td>
+              <td class="outcome-{{ c.outcome }}">{{ c.outcome }}</td>
+              <td>{{ c.note or '-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="meta">{{ case_matrix.message }}</div>
       {% endif %}
     </div>
 

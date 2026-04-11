@@ -8,8 +8,10 @@ from scanner.core.models import ScanResult
 from scanner.reporting.analysis import (
     DEFAULT_IMPROVEMENTS,
     DEFAULT_LIMITATIONS,
+    build_case_matrix,
     build_detection_quality,
     build_finding_rows,
+    build_scope_warnings,
     build_summary,
     build_test_scope,
 )
@@ -32,6 +34,12 @@ class JsonReporter:
         payload["summary"] = summary
         payload["test_scope"] = build_test_scope(summary, benchmark_cases=benchmark_cases, override_scope=scope_override)
         payload["detection_quality"] = build_detection_quality(rows, benchmark_cases=benchmark_cases)
+        payload["case_matrix"] = build_case_matrix(rows, benchmark_cases=benchmark_cases)
+        payload["scope_warnings"] = build_scope_warnings(
+            payload["test_scope"],
+            benchmark_cases=benchmark_cases,
+            case_matrix=payload["case_matrix"],
+        )
         payload["limitations"] = result.data.get("limitations") or DEFAULT_LIMITATIONS
         payload["improvement_directions"] = result.data.get("improvements") or DEFAULT_IMPROVEMENTS
 

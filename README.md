@@ -159,11 +159,13 @@ python -m pytest -q
   - 탐지 성공 수(TP)
   - 오탐 수(FP)
   - 미탐 수(FN)
+  - Expected vs Actual 매트릭스(리소스 단위)
   - Precision/Recall
 - 탐지 근거
   - Reason, Risk, Recommendation, Evidence
 - 한계/개선 방향
   - 기본 항목 자동 포함 + CLI 인자로 사용자 정의 가능
+  - benchmark 없이 총 수치만 입력하면 리포트에 경고를 표시합니다.
 
 ## 서비스별 상태 표준화
 - 스캔 결과에 `service_status`를 포함합니다.
